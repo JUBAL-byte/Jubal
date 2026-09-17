@@ -1,8 +1,9 @@
 name: Jubal CI
 
-# Every push to main runs the whole verification chain and writes its own
-# output back into the repository on the `ci-logs` branch, so the logs can be
-# read with a plain `git fetch` — no API access and no manual copying.
+# Runs the full verification chain on every push to main, writes its own output
+# back to the `ci-logs` branch (so the logs can be read with a plain git fetch),
+# and publishes the finished APKs as a GitHub Release that can be downloaded
+# straight onto a phone.
 
 on:
   push:
@@ -15,7 +16,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
@@ -60,22 +61,13 @@ jobs:
           set -o pipefail
           flutter analyze 2>&1 | tee ci/03-analyze.txt
 
-      - name: Install pinned NDK
-        continue-on-error: true
-        run: |
-          SDKMAN="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          [ -x "$SDKMAN" ] || SDKMAN="$(command -v sdkmanager || true)"
-          if [ -n "$SDKMAN" ]; then
-            yes | "$SDKMAN" --install "ndk;29.0.14206865" > ci/05-ndk.txt 2>&1 || true
-          else
-            echo "sdkmanager not found" > ci/05-ndk.txt
-          fi
-
-      - name: Build debug APK
+      # One APK per CPU architecture instead of a single 240 MB fat file.
+      # A Pixel installs the arm64-v8a one.
+      - name: Build release APKs
         continue-on-error: true
         run: |
           set -o pipefail
-          flutter build apk --debug --flavor stable 2>&1 | tee ci/04-build-apk.txt
+          flutter build apk --release --flavor stable --split-per-abi 2>&1 | tee ci/04-build-apk.txt
 
       - name: Collect summary
         if: always()
@@ -85,19 +77,35 @@ jobs:
             echo "commit   : ${{ github.sha }}"
             echo "finished : $(date -u +%FT%TZ)"
             echo
-            echo "### analyze — issue lines"
-            grep -E "^( *)(error|warning|info) " ci/03-analyze.txt 2>/dev/null | head -n 200 || echo "(no analyze output)"
+            echo "### analyze - errors only"
+            grep "error •" ci/03-analyze.txt 2>/dev/null || echo "(no errors)"
             echo
-            echo "### analyze — tail"
-            tail -n 30 ci/03-analyze.txt 2>/dev/null || echo "(missing)"
+            echo "### analyze - totals"
+            tail -n 3 ci/03-analyze.txt 2>/dev/null || echo "(missing)"
             echo
-            echo "### apk build — tail"
-            tail -n 80 ci/04-build-apk.txt 2>/dev/null || echo "(missing)"
+            echo "### apk build - tail"
+            tail -n 60 ci/04-build-apk.txt 2>/dev/null || echo "(missing)"
             echo
             echo "### artifacts"
             ls -la build/app/outputs/flutter-apk/ 2>&1 || echo "(no apk directory)"
           } > ci/00-summary.txt
           cat ci/00-summary.txt
+
+      - name: Publish APKs as a release
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(build/app/outputs/flutter-apk/*-release.apk)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "no release apk produced; skipping release"
+            exit 0
+          fi
+          gh release create "build-${{ github.run_number }}" "${files[@]}" \
+            --title "Jubal build ${{ github.run_number }}" \
+            --notes "Automatic build from ${{ github.sha }}. Install the arm64-v8a file on a Pixel."
 
       - name: Publish logs to ci-logs branch
         if: always()
@@ -118,7 +126,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: jubal-debug-apk
+          name: jubal-apk
           path: build/app/outputs/flutter-apk/*.apk
           if-no-files-found: ignore
           retention-days: 30
