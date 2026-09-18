@@ -1,0 +1,84 @@
+run      : 3
+commit   : 4c1f6c1c9b6d013250568f0c946da1a8b40c5ea0
+finished : 2026-09-18T08:13:31Z
+
+### analyze - errors only
+(no errors)
+
+### analyze - totals
+warning • The receiver can't be null, so the null-aware operator '?.' is unnecessary • lib/services/audio_services/windows_audio_service.dart:88:32 • invalid_null_aware_operator
+
+295 issues found. (ran in 23.6s)
+
+### apk build - tail
++ typed_data 1.4.0
++ version 3.0.0 (3.0.2 available)
++ yaml 3.1.2 (3.1.4 available)
+Changed 25 dependencies!
+15 packages have newer versions incompatible with dependency constraints.
+Try `dart pub outdated` for more information.
+Compiling bin/build_tool_runner.dart to kernel file bin/build_tool_runner.dill.
+INFO: Precompiled binaries are disabled
+INFO: Installing Rust target: armv7-linux-androideabi
+INFO: Building flutter_discord_rpc for armv7-linux-androideabi
+INFO: Installing Rust target: aarch64-linux-android
+INFO: Building flutter_discord_rpc for aarch64-linux-android
+INFO: Installing Rust target: x86_64-linux-android
+INFO: Building flutter_discord_rpc for x86_64-linux-android
+Resolving dependencies...
+Downloading packages...
++ adaptive_number 1.0.0
++ args 2.4.2 (2.7.0 available)
++ async 2.13.1
++ build_tool 1.0.0 from path /home/runner/.pub-cache/hosted/pub.dev/metadata_god-1.1.0/cargokit/gradle/../build_tool
++ collection 1.18.0 (1.19.1 available)
++ convert 3.1.1 (3.1.2 available)
++ crypto 3.0.3 (3.0.7 available)
++ ed25519_edwards 0.3.1 (0.3.2 available)
++ fixnum 1.1.1
++ github 9.17.0 (9.26.0 available)
++ hex 0.2.0
++ http 1.1.0 (1.6.0 available)
++ http_parser 4.0.2 (4.1.2 available)
++ json_annotation 4.12.0
++ logging 1.2.0 (1.3.0 available)
++ meta 1.19.0
++ path 1.8.0 (1.9.1 available)
++ petitparser 5.4.0 (7.0.2 available)
++ source_span 1.10.0 (1.10.2 available)
++ string_scanner 1.4.1
++ term_glyph 1.2.2
++ toml 0.14.0 (0.18.0 available)
++ typed_data 1.4.0
++ version 3.0.0 (3.0.2 available)
++ yaml 3.1.2 (3.1.4 available)
+Changed 25 dependencies!
+15 packages have newer versions incompatible with dependency constraints.
+Try `dart pub outdated` for more information.
+Compiling bin/build_tool_runner.dart to kernel file bin/build_tool_runner.dill.
+INFO: Precompiled binaries are disabled
+INFO: Building metadata_god for armv7-linux-androideabi
+INFO: Building metadata_god for aarch64-linux-android
+INFO: Building metadata_god for x86_64-linux-android
+Checking the license for package CMake 3.22.1 in /usr/local/lib/android/sdk/licenses
+License for package CMake 3.22.1 accepted.
+Preparing "Install CMake 3.22.1 v.3.22.1".
+"Install CMake 3.22.1 v.3.22.1" ready.
+Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
+"Install CMake 3.22.1 v.3.22.1" complete.
+"Install CMake 3.22.1 v.3.22.1" finished.
+Running Gradle task 'assembleStableRelease'...                    615.6s
+✓ Built build/app/outputs/flutter-apk/app-armeabi-v7a-stable-release.apk (51.2MB)
+✓ Built build/app/outputs/flutter-apk/app-arm64-v8a-stable-release.apk (54.1MB)
+✓ Built build/app/outputs/flutter-apk/app-x86_64-stable-release.apk (56.3MB)
+
+### artifacts
+total 157820
+drwxr-xr-x 2 runner runner     4096 Sep 18 08:13 .
+drwxr-xr-x 8 runner runner     4096 Sep 18 08:13 ..
+-rw-r--r-- 1 runner runner 54113779 Sep 18 08:13 app-arm64-v8a-stable-release.apk
+-rw-r--r-- 1 runner runner       40 Sep 18 08:13 app-arm64-v8a-stable-release.apk.sha1
+-rw-r--r-- 1 runner runner 51201115 Sep 18 08:13 app-armeabi-v7a-stable-release.apk
+-rw-r--r-- 1 runner runner       40 Sep 18 08:13 app-armeabi-v7a-stable-release.apk.sha1
+-rw-r--r-- 1 runner runner 56264803 Sep 18 08:13 app-x86_64-stable-release.apk
+-rw-r--r-- 1 runner runner       40 Sep 18 08:13 app-x86_64-stable-release.apk.sha1
