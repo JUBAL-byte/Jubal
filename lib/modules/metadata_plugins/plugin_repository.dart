@@ -8,7 +8,7 @@ import 'package:spotube/components/markdown/markdown.dart';
 import 'package:spotube/extensions/context.dart';
 import 'package:spotube/models/metadata/metadata.dart';
 import 'package:spotube/provider/metadata_plugin/metadata_plugin_provider.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+import 'package:spotube/utils/no_browsing.dart';
 import 'package:change_case/change_case.dart';
 
 final validTopics = {

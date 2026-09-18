@@ -11,7 +11,7 @@ import 'package:spotube/modules/settings/section_card_with_heading.dart';
 import 'package:spotube/components/adaptive/adaptive_list_tile.dart';
 import 'package:spotube/extensions/context.dart';
 import 'package:spotube/provider/user_preferences/user_preferences_provider.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+import 'package:spotube/utils/no_browsing.dart';
 
 class SettingsAboutSection extends HookConsumerWidget {
   const SettingsAboutSection({super.key});

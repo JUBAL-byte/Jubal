@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:spotube/collections/spotube_icons.dart';
 import 'package:spotube/extensions/context.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+import 'package:spotube/utils/no_browsing.dart';
 
 class LinkOpenPermissionDialog extends StatelessWidget {
   final String? href;

@@ -9,7 +9,7 @@ import 'package:spotube/components/titlebar/titlebar.dart';
 import 'package:spotube/extensions/context.dart';
 import 'package:spotube/models/metadata/metadata.dart';
 import 'package:spotube/provider/metadata_plugin/core/user.dart';
-import 'package:url_launcher/url_launcher_string.dart';
+import 'package:spotube/utils/no_browsing.dart';
 import 'package:auto_route/auto_route.dart';
 
 @RoutePage()

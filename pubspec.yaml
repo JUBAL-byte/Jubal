@@ -175,6 +175,10 @@ dev_dependencies:
   auto_route_generator: ^9.0.0
 
 dependency_overrides:
+  # Jubal: vendored so the sign-in webview can be restricted to an allowlist.
+  # See packages/hetu_spotube_plugin/lib/webview/allowed_hosts.dart
+  hetu_spotube_plugin:
+    path: packages/hetu_spotube_plugin
   bonsoir_android:
     git:
       url: https://github.com/KRTirtho/Bonsoir.git

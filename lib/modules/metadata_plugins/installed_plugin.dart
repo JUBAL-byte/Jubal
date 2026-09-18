@@ -11,7 +11,7 @@ import 'package:spotube/provider/metadata_plugin/core/auth.dart';
 import 'package:spotube/provider/metadata_plugin/core/support.dart';
 import 'package:spotube/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:spotube/provider/metadata_plugin/updater/update_checker.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:spotube/utils/no_browsing.dart';
 
 final validAbilities = {
   PluginAbilities.metadata: ("Metadata", SpotubeIcons.album),
@@ -373,6 +373,11 @@ class MetadataInstalledPluginItem extends HookConsumerWidget {
                         },
                       );
                     }),
+                  // Sign-in opens the embedded webview, which in this build is
+                  // restricted to the sign-in allowlist in
+                  // packages/hetu_spotube_plugin/lib/webview/allowed_hosts.dart
+                  // — the provider, the identity providers it hands off to, and
+                  // nothing else. It cannot be used to browse.
                   if ((isDefaultMetadata || isDefaultAudioSource) &&
                       requiresAuth &&
                       !isAuthenticated)

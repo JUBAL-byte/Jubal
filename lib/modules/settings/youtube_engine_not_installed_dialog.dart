@@ -12,7 +12,7 @@ import 'package:spotube/hooks/controllers/use_shadcn_text_editing_controller.dar
 import 'package:spotube/models/database/database.dart';
 import 'package:spotube/services/kv_store/kv_store.dart';
 import 'package:spotube/utils/platform.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:spotube/utils/no_browsing.dart';
 import 'package:yt_dlp_dart/yt_dlp_dart.dart';
 
 const engineDownloadUrls = {

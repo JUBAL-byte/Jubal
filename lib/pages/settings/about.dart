@@ -10,7 +10,7 @@ import 'package:spotube/extensions/context.dart';
 import 'package:spotube/hooks/controllers/use_package_info.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:spotube/utils/no_browsing.dart';
 import 'package:auto_route/auto_route.dart';
 
 final _licenseProvider = FutureProvider<String>((ref) async {
