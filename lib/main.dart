@@ -47,6 +47,7 @@ import 'package:spotube/services/logger/logger.dart';
 import 'package:spotube/services/wm_tools/wm_tools.dart';
 import 'package:spotube/utils/migrations/sandbox.dart';
 import 'package:spotube/utils/platform.dart';
+import 'package:spotube/utils/startup_guard.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -85,7 +86,14 @@ Future<void> main(List<String> rawArgs) async {
       await FlutterDisplayMode.setHighRefreshRate();
     }
     if (kIsAndroid || kIsDesktop) {
-      await NewPipeExtractor.init();
+      // A failure here must not take the whole launch down with it: this
+      // extractor is only one of several ways to reach audio, and the app is
+      // perfectly usable without it.
+      try {
+        await NewPipeExtractor.init();
+      } catch (error, stack) {
+        AppLogger.reportError(error, stack);
+      }
     }
 
     if (!kIsWeb) {
@@ -93,6 +101,10 @@ Future<void> main(List<String> rawArgs) async {
     }
 
     await KVStoreService.initialize();
+
+    // Leave a mark for the watchdog before anything that a saved setting
+    // could break. It is cleared once the app has stayed up (see below).
+    await StartupGuard.begin();
 
     if (kIsDesktop) {
       await windowManager.setPreventClose(true);
@@ -112,6 +124,10 @@ Future<void> main(List<String> rawArgs) async {
     await EncryptedKvStoreService.initialize();
 
     final database = AppDatabase();
+
+    // If the previous launch never finished, put the settings that can break
+    // a launch back to their defaults before any provider reads them.
+    await StartupGuard.recover(database);
 
     if (kIsDesktop) {
       await localNotifier.setup(appName: "Spotube");
@@ -168,6 +184,10 @@ class Spotube extends HookConsumerWidget {
 
     useEffect(() {
       FlutterNativeSplash.remove();
+
+      // The app drew a frame; if it is still alive a few seconds from now,
+      // this launch counts as healthy and the watchdog mark is cleared.
+      StartupGuard.markHealthyWhenSettled();
 
       if (kIsMobile) {
         HomeWidget.registerInteractivityCallback(glanceBackgroundCallback);

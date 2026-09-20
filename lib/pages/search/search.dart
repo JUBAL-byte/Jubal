@@ -17,6 +17,7 @@ import 'package:spotube/pages/search/tabs/albums.dart';
 import 'package:spotube/pages/search/tabs/all.dart';
 import 'package:spotube/pages/search/tabs/artists.dart';
 import 'package:spotube/pages/search/tabs/playlists.dart';
+import 'package:spotube/pages/search/tabs/podcasts.dart';
 import 'package:spotube/pages/search/tabs/tracks.dart';
 import 'package:spotube/provider/metadata_plugin/search/all.dart';
 import 'package:spotube/services/kv_store/kv_store.dart';
@@ -180,8 +181,15 @@ class SearchPage extends HookConsumerWidget {
                   spacing: 8,
                   children: [
                     const Gap(12),
+                    // "podcasts" is Jubal's own chip: podcasts are found in
+                    // a public directory and played from the publisher's RSS
+                    // feed, independently of the metadata plugin, so it is
+                    // appended to whatever chips the plugin offers.
                     if (searchChipSnapshot.asData?.value != null)
-                      for (final chip in searchChipSnapshot.asData!.value)
+                      for (final chip in [
+                        ...searchChipSnapshot.asData!.value,
+                        "podcasts",
+                      ])
                         Chip(
                           style: selectedChip.value == chip
                               ? ButtonVariance.primary.copyWith(
@@ -219,6 +227,7 @@ class SearchPage extends HookConsumerWidget {
                       "albums" => const SearchPageAlbumsTab(),
                       "artists" => const SearchPageArtistsTab(),
                       "playlists" => const SearchPagePlaylistsTab(),
+                      "podcasts" => const SearchPagePodcastsTab(),
                       _ => const SearchPageAllTab(),
                     },
                   ),

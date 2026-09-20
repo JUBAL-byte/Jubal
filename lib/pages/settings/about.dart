@@ -1,22 +1,28 @@
 import 'package:flutter/services.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
-import 'package:spotube/collections/assets.gen.dart';
 import 'package:spotube/collections/env.dart';
 import 'package:spotube/components/button/back_button.dart';
-import 'package:spotube/components/image/universal_image.dart';
-import 'package:spotube/components/links/hyper_link.dart';
 import 'package:spotube/components/titlebar/titlebar.dart';
 import 'package:spotube/extensions/context.dart';
 import 'package:spotube/hooks/controllers/use_package_info.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:spotube/utils/no_browsing.dart';
 import 'package:auto_route/auto_route.dart';
 
 final _licenseProvider = FutureProvider<String>((ref) async {
   return await rootBundle.loadString("LICENSE");
 });
 
+/// About Jubal.
+///
+/// This page used to be a wall of someone else's branding: a logo, a founder's
+/// profile, a website, a repository, a chat invite. None of it belongs in a
+/// build whose whole point is that there is no way out to the open web, and a
+/// link that cannot be opened is worse than no link at all.
+///
+/// What remains is what this page is actually for — which build you are
+/// running, and the credit and licence text that the upstream project is owed.
+/// The attribution is deliberate: Jubal is a fork, and says so in words.
 @RoutePage()
 class AboutSpotubePage extends HookConsumerWidget {
   static const name = "about";
@@ -37,7 +43,7 @@ class AboutSpotubePage extends HookConsumerWidget {
         headers: [
           TitleBar(
             leading: const [BackButton()],
-            title: Text(context.l10n.about_spotube),
+            title: const Text("About Jubal"),
           )
         ],
         child: SingleChildScrollView(
@@ -45,14 +51,14 @@ class AboutSpotubePage extends HookConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
               children: [
-                Assets.branding.spotubeLogoPng.image(
-                  height: 200,
-                  width: 200,
-                ),
+                const SizedBox(height: 24),
                 Center(
                   child: Column(
                     children: [
-                      Text(context.l10n.spotube_description).semiBold().large(),
+                      const Text(
+                        "Text only music.",
+                        textAlign: TextAlign.center,
+                      ).semiBold().large(),
                       const SizedBox(height: 20),
                       Table(
                         columnWidths: const {
@@ -62,18 +68,6 @@ class AboutSpotubePage extends HookConsumerWidget {
                         },
                         defaultRowHeight: const FixedTableSize(40),
                         rows: [
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.founder)),
-                              colon,
-                              TableCell(
-                                child: Hyperlink(
-                                  context.l10n.kingkor_roy_tirtho,
-                                  "https://github.com/KRTirtho",
-                                ),
-                              )
-                            ],
-                          ),
                           TableRow(
                             cells: [
                               TableCell(child: Text(context.l10n.version)),
@@ -98,76 +92,15 @@ class AboutSpotubePage extends HookConsumerWidget {
                               )
                             ],
                           ),
-                          const TableRow(
-                            cells: [
-                              TableCell(child: Text("Website")),
-                              colon,
-                              TableCell(
-                                child: Hyperlink(
-                                  "spotube.krtirtho.dev",
-                                  "https://spotube.krtirtho.dev",
-                                ),
-                              ),
-                            ],
-                          ),
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.repository)),
-                              colon,
-                              const TableCell(
-                                child: Hyperlink(
-                                  "github.com/KRTirtho/spotube",
-                                  "https://github.com/KRTirtho/spotube",
-                                ),
-                              ),
-                            ],
-                          ),
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.license)),
-                              colon,
-                              const TableCell(
-                                child: Hyperlink(
-                                  "BSD-4-Clause",
-                                  "https://raw.githubusercontent.com/KRTirtho/spotube/master/LICENSE",
-                                ),
-                              ),
-                            ],
-                          ),
-                          TableRow(
-                            cells: [
-                              TableCell(child: Text(context.l10n.bug_issues)),
-                              colon,
-                              const TableCell(
-                                child: Hyperlink(
-                                  "Discord#chat",
-                                  "https://discord.gg/uJ94vxB6vg",
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    onTap: () => launchUrl(
-                      Uri.parse("https://discord.gg/uJ94vxB6vg"),
-                      mode: LaunchMode.externalApplication,
-                    ),
-                    child: const UniversalImage(
-                      path:
-                          "https://discord.com/api/guilds/1012234096237350943/widget.png?style=banner2",
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Text(
-                  context.l10n.made_with,
+                  "Jubal is built on Spotube by Kingkor Roy Tirtho, "
+                  "used under the BSD-4-Clause licence.",
                   textAlign: TextAlign.center,
                   style: theme.typography.small,
                 ),

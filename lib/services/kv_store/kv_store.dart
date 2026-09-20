@@ -84,6 +84,14 @@ abstract class KVStoreService {
   static Future<void> setVolume(double value) async =>
       await sharedPreferences.setDouble('volume', value);
 
+  /// Set while a launch is in progress, cleared once the app is up and
+  /// running. Still being set at the next launch means the previous one never
+  /// finished — see `StartupGuard`.
+  static bool get startupIncomplete =>
+      sharedPreferences.getBool('startupIncomplete') ?? false;
+  static Future<void> setStartupIncomplete(bool value) async =>
+      await sharedPreferences.setBool('startupIncomplete', value);
+
   static bool get hasMigratedToDrift =>
       sharedPreferences.getBool('hasMigratedToDrift') ?? false;
   static Future<void> setHasMigratedToDrift(bool value) async =>

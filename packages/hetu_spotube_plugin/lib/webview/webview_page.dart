@@ -93,6 +93,16 @@ class _WebviewPageState extends State<WebviewPage> {
                 if (url == null) {
                   return NavigationActionPolicy.CANCEL;
                 }
+
+                // Only top-level navigation is gated. A sign-in page pulls in
+                // sub-frames of its own — cookie consent, captcha and bot
+                // checks — and cancelling those breaks the sign-in without
+                // closing any door: a sub-frame is part of a page that was
+                // already allowed, and the viewer cannot navigate to it.
+                if (navigationAction.isForMainFrame == false) {
+                  return NavigationActionPolicy.ALLOW;
+                }
+
                 if (isSignInUrlAllowed(url)) {
                   return NavigationActionPolicy.ALLOW;
                 }

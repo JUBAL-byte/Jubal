@@ -83,38 +83,82 @@ class IsolatedYoutubeExplode {
         }
       }
 
-      // Run the requested method on YoutubeExplode
-      var result = switch (methodName) {
-        "search" => youtubeExplode.search
-            .search(
+      // Run the requested method on YoutubeExplode.
+      //
+      // Every reply is an envelope: [true, value] on success, [false, message]
+      // on failure. Before this, a throw in here sent nothing at all, and the
+      // caller's Completer simply never completed — which is what a track
+      // stuck at 0:00 with no error message actually was. YouTube changing its
+      // player, an age-gated video, a region block: all of them landed here
+      // and turned into a silent, permanent wait.
+      try {
+        var result = switch (methodName) {
+          "search" => youtubeExplode.search
+              .search(
+                arguments[0] as String,
+                filter: arguments.elementAtOrNull(1) ?? TypeFilters.video,
+              )
+              .then((s) => s.toList()),
+          "video" => youtubeExplode.videos.get(arguments[0] as String),
+          "manifest" => youtubeExplode.videos.streamsClient.getManifest(
               arguments[0] as String,
-              filter: arguments.elementAtOrNull(1) ?? TypeFilters.video,
-            )
-            .then((s) => s.toList()),
-        "video" => youtubeExplode.videos.get(arguments[0] as String),
-        "manifest" => youtubeExplode.videos.streamsClient.getManifest(
-            arguments[0] as String,
-            requireWatchPage: arguments.elementAtOrNull(1) ?? true,
-            ytClients: arguments.elementAtOrNull(2) as List<YoutubeApiClient>?,
-          ),
-        _ => throw ArgumentError('Invalid method name: $methodName'),
-      };
+              requireWatchPage: arguments.elementAtOrNull(1) ?? true,
+              ytClients: arguments.elementAtOrNull(2) as List<YoutubeApiClient>?,
+            ),
+          _ => throw ArgumentError('Invalid method name: $methodName'),
+        };
 
-      replyPort.send(await result);
+        replyPort.send([true, await result]);
+      } catch (error) {
+        // The error object itself may not be sendable across isolates, so
+        // only its description travels back.
+        replyPort.send([false, "${error.runtimeType}: $error"]);
+      }
     });
   }
+
+  /// How long a single YouTube lookup may take before it is given up on.
+  ///
+  /// A request that is never answered used to leave the player waiting
+  /// forever. Failing after a bounded wait lets the caller report the problem
+  /// or move on to another source.
+  static const _requestTimeout = Duration(seconds: 30);
 
   Future<T> _runMethod<T>(String methodName, List<dynamic> args) {
     final completer = Completer<T>();
     final responsePort = ReceivePort();
 
     responsePort.listen((message) {
-      completer.complete(message as T);
+      if (completer.isCompleted) return;
+
+      if (message is List && message.length == 2 && message[0] is bool) {
+        final ok = message[0] as bool;
+        if (ok) {
+          completer.complete(message[1] as T);
+        } else {
+          completer.completeError(
+            Exception("YouTube lookup '$methodName' failed: ${message[1]}"),
+          );
+        }
+      } else {
+        // Tolerate a bare value, so an older reply shape still works.
+        completer.complete(message as T);
+      }
       responsePort.close();
     });
 
     _sendPort.send([responsePort.sendPort, methodName, args]);
-    return completer.future;
+
+    return completer.future.timeout(
+      _requestTimeout,
+      onTimeout: () {
+        responsePort.close();
+        throw TimeoutException(
+          "YouTube lookup '$methodName' did not answer",
+          _requestTimeout,
+        );
+      },
+    );
   }
 
   Future<List<Video>> search(
@@ -162,7 +206,21 @@ class YouTubeExplodeEngine implements YouTubeEngine {
     final streamManifest = await _youtubeExplode.manifest(
       videoId,
       requireWatchPage: false,
+      // Order matters: these are tried in turn.
+      //
+      // `androidSdkless` comes first because it is the only one of these that
+      // YouTube does not demand a Proof-of-Origin token for. The plain
+      // `android` client carries an `androidSdkVersion` field, and that field
+      // is exactly what makes YouTube require a PO token — without one it
+      // hands back 403 on every audio-only stream. Since this app plays
+      // audio-only streams and nothing else, asking `android` first meant
+      // asking for the one thing it cannot give, which is how a track ended
+      // up sitting at 0:00 forever.
+      //
+      // The rest stay as fallbacks: they serve fewer or lower-quality
+      // streams, but between them they cover videos the first client refuses.
       ytClients: [
+        YoutubeApiClient.androidSdkless,
         YoutubeApiClient.ios,
         YoutubeApiClient.androidVr,
         YoutubeApiClient.android,

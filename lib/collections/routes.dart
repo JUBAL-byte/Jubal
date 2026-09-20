@@ -146,6 +146,10 @@ class AppRouter extends RootStackRouter {
               page: TrackRoute.page,
             ),
             AutoRoute(
+              path: "podcast",
+              page: PodcastRoute.page,
+            ),
+            AutoRoute(
               path: "connect",
               page: ConnectRoute.page,
             ),

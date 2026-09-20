@@ -36,6 +36,19 @@ const List<String> kAllowedSignInDomains = [
   // --- Apple: "Continue with Apple" ---------------------------------------
   'appleid.apple.com',
   'cdn-apple.com',
+
+  // --- Bot checks and consent shown during sign-in and sign-up -------------
+  // These belong to the login flow itself; without them a captcha or a
+  // cookie banner can stall the page before credentials are even accepted.
+  'hcaptcha.com',
+  'arkoselabs.com',
+  'funcaptcha.com',
+  'onetrust.com',
+  'cookielaw.org',
+
+  // --- Spotify's own short links, used by the sign-up path ----------------
+  'spotify.link',
+  'onelink.me',
 ];
 
 /// Whether [url] may be opened in the sign-in webview.
