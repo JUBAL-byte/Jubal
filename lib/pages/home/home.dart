@@ -41,16 +41,17 @@ class HomePage extends HookConsumerWidget {
               if (mediaQuery.smAndDown || layoutMode == LayoutMode.compact)
                 SliverAppBar(
                   floating: true,
-                  title: DefaultTextStyle(
-                    style: TextStyle(
-                      fontFamily: "Cookie",
-                      fontSize: 30,
-                      letterSpacing: 1.8,
-                      color: theme.colorScheme.foreground,
-                    ),
-                    child: const Text("Spotube"),
+                  // The app's own mark, set in a black strip: the waveform,
+                  // the name and the line, in one row. This replaces the
+                  // upstream project's name, which was still sitting here in
+                  // a script face that belonged to someone else's brand.
+                  title: Image.asset(
+                    "assets/branding/jubal-header.png",
+                    height: 34,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
                   ),
-                  backgroundColor: theme.colorScheme.background,
+                  backgroundColor: Colors.black,
                   foregroundColor: theme.colorScheme.foreground,
                   actions: [
                     const ConnectDeviceButton(),

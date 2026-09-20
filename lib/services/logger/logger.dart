@@ -9,6 +9,7 @@ import 'package:logger/logger.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:spotube/utils/platform.dart';
+import 'package:spotube/utils/describe_error.dart';
 import 'package:logging/logging.dart' as logging;
 
 final _loggingToLoggerLevel = {
@@ -116,12 +117,17 @@ class AppLogger {
     StackTrace? stackTrace,
     message = "",
   ]) async {
-    log.e(message, error: error, stackTrace: stackTrace);
+    // `describeError` is used rather than the error's own text because a
+    // failed HTTP request describes itself without ever naming the address
+    // that failed, which is the one detail a log is kept for.
+    final described = describeError(error);
+
+    log.e(message, error: described, stackTrace: stackTrace);
 
     if (kReleaseMode) {
       await logFile.writeAsString(
         "[${DateTime.now()}]---------------------\n"
-        "$error\n$stackTrace\n"
+        "$described\n$stackTrace\n"
         "----------------------------------------\n",
         mode: FileMode.writeOnlyAppend,
       );

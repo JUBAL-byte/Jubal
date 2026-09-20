@@ -5,6 +5,7 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:shadcn_flutter/shadcn_flutter_extension.dart';
 import 'package:spotube/collections/spotube_icons.dart';
 import 'package:spotube/extensions/context.dart';
+import 'package:spotube/utils/describe_error.dart';
 
 class ErrorBox extends StatelessWidget {
   final Object error;
@@ -38,7 +39,7 @@ class ErrorBox extends StatelessWidget {
                 filled: true,
                 fillColor: context.theme.colorScheme.muted,
                 child: Text(
-                  error.toString(),
+                  describeError(error),
                   style: TextStyle(
                     // Use monospace
                     fontFamily: 'Ubuntu Mono',
@@ -90,7 +91,7 @@ class ErrorBox extends StatelessWidget {
                                     child: Text(context.l10n.copy_to_clipboard),
                                     onPressed: () {
                                       Clipboard.setData(
-                                        ClipboardData(text: error.toString()),
+                                        ClipboardData(text: describeError(error)),
                                       );
                                       copied.value = true;
                                     },
@@ -103,7 +104,7 @@ class ErrorBox extends StatelessWidget {
                                   filled: true,
                                   fillColor: context.theme.colorScheme.muted,
                                   child: SelectableText(
-                                    error.toString(),
+                                    describeError(error),
                                     style: TextStyle(
                                       // Use monospace
                                       fontFamily: 'Ubuntu Mono',
