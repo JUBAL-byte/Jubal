@@ -1,0 +1,119 @@
+Running Gradle task 'assembleStableRelease'...                  
+Downloading file from: https://github.com/media-kit/libmpv-android-audio-build/releases/download/v1.1.8/default-arm64-v8a.jar
+Downloading file from: https://github.com/media-kit/libmpv-android-audio-build/releases/download/v1.1.8/default-armeabi-v7a.jar
+Downloading file from: https://github.com/media-kit/libmpv-android-audio-build/releases/download/v1.1.8/default-x86_64.jar
+Downloading file from: https://github.com/media-kit/libmpv-android-audio-build/releases/download/v1.1.8/default-x86.jar
+Checking the license for package Android SDK Platform 33 in /usr/local/lib/android/sdk/licenses
+License for package Android SDK Platform 33 accepted.
+Preparing "Install Android SDK Platform 33 (revision 3)".
+"Install Android SDK Platform 33 (revision 3)" ready.
+Installing Android SDK Platform 33 in /usr/local/lib/android/sdk/platforms/android-33
+"Install Android SDK Platform 33 (revision 3)" complete.
+"Install Android SDK Platform 33 (revision 3)" finished.
+Checking the license for package Android SDK Platform 31 in /usr/local/lib/android/sdk/licenses
+License for package Android SDK Platform 31 accepted.
+Preparing "Install Android SDK Platform 31 (revision 1)".
+"Install Android SDK Platform 31 (revision 1)" ready.
+Installing Android SDK Platform 31 in /usr/local/lib/android/sdk/platforms/android-31
+"Install Android SDK Platform 31 (revision 1)" complete.
+"Install Android SDK Platform 31 (revision 1)" finished.
+Error: unable to find directory entry in pubspec.yaml: /home/runner/.pub-cache/git/flutter_new_pipe_extractor-41cbd821ce49b9343136f67d83d3117e582dad75/assets/
+Font asset "RadixIcons.otf" was tree-shaken, reducing it from 87120 to 776 bytes (99.1% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "LucideIcons.ttf" was tree-shaken, reducing it from 685840 to 2108 bytes (99.7% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "SimpleIcons.ttf" was tree-shaken, reducing it from 1318664 to 2028 bytes (99.8% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "feather.ttf" was tree-shaken, reducing it from 80488 to 19516 bytes (75.8% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "FluentSystemIcons-Regular.ttf" was tree-shaken, reducing it from 2435788 to 1408 bytes (99.9% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 6216 bytes (99.6% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Note: /home/runner/.pub-cache/git/Disable-Battery-Optimizations-aa77a61946849fff495091fc13dcc390948cc60b/android/src/main/java/in/jvapps/disable_battery_optimization/utils/PrefUtils.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /home/runner/.pub-cache/git/fk_user_agent-458046cd9a88924e5074d96ba45397219d53b230/android/src/main/java/io/flutterfastkit/fk_user_agent/FkUserAgentPlugin.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+Caught exception: Already watching path: /home/runner/work/Jubal/Jubal/android
+Resolving dependencies...
+Downloading packages...
++ adaptive_number 1.0.0
++ args 2.4.2 (2.7.0 available)
++ async 2.13.1
++ build_tool 1.0.0 from path /home/runner/.pub-cache/hosted/pub.dev/flutter_discord_rpc-1.1.0/cargokit/gradle/../build_tool
++ collection 1.18.0 (1.19.1 available)
++ convert 3.1.1 (3.1.2 available)
++ crypto 3.0.3 (3.0.7 available)
++ ed25519_edwards 0.3.1 (0.3.2 available)
++ fixnum 1.1.1
++ github 9.17.0 (9.26.0 available)
++ hex 0.2.0
++ http 1.1.0 (1.6.0 available)
++ http_parser 4.0.2 (4.1.2 available)
++ json_annotation 4.12.0
++ logging 1.2.0 (1.3.0 available)
++ meta 1.19.0
++ path 1.8.0 (1.9.1 available)
++ petitparser 5.4.0 (7.0.2 available)
++ source_span 1.10.0 (1.10.2 available)
++ string_scanner 1.4.1
++ term_glyph 1.2.2
++ toml 0.14.0 (0.18.0 available)
++ typed_data 1.4.0
++ version 3.0.0 (3.0.2 available)
++ yaml 3.1.2 (3.1.4 available)
+Changed 25 dependencies!
+15 packages have newer versions incompatible with dependency constraints.
+Try `dart pub outdated` for more information.
+Compiling bin/build_tool_runner.dart to kernel file bin/build_tool_runner.dill.
+INFO: Precompiled binaries are disabled
+INFO: Installing Rust target: armv7-linux-androideabi
+INFO: Building flutter_discord_rpc for armv7-linux-androideabi
+INFO: Installing Rust target: aarch64-linux-android
+INFO: Building flutter_discord_rpc for aarch64-linux-android
+INFO: Installing Rust target: x86_64-linux-android
+INFO: Building flutter_discord_rpc for x86_64-linux-android
+Resolving dependencies...
+Downloading packages...
++ adaptive_number 1.0.0
++ args 2.4.2 (2.7.0 available)
++ async 2.13.1
++ build_tool 1.0.0 from path /home/runner/.pub-cache/hosted/pub.dev/metadata_god-1.1.0/cargokit/gradle/../build_tool
++ collection 1.18.0 (1.19.1 available)
++ convert 3.1.1 (3.1.2 available)
++ crypto 3.0.3 (3.0.7 available)
++ ed25519_edwards 0.3.1 (0.3.2 available)
++ fixnum 1.1.1
++ github 9.17.0 (9.26.0 available)
++ hex 0.2.0
++ http 1.1.0 (1.6.0 available)
++ http_parser 4.0.2 (4.1.2 available)
++ json_annotation 4.12.0
++ logging 1.2.0 (1.3.0 available)
++ meta 1.19.0
++ path 1.8.0 (1.9.1 available)
++ petitparser 5.4.0 (7.0.2 available)
++ source_span 1.10.0 (1.10.2 available)
++ string_scanner 1.4.1
++ term_glyph 1.2.2
++ toml 0.14.0 (0.18.0 available)
++ typed_data 1.4.0
++ version 3.0.0 (3.0.2 available)
++ yaml 3.1.2 (3.1.4 available)
+Changed 25 dependencies!
+15 packages have newer versions incompatible with dependency constraints.
+Try `dart pub outdated` for more information.
+Compiling bin/build_tool_runner.dart to kernel file bin/build_tool_runner.dill.
+INFO: Precompiled binaries are disabled
+INFO: Building metadata_god for armv7-linux-androideabi
+INFO: Building metadata_god for aarch64-linux-android
+INFO: Building metadata_god for x86_64-linux-android
+Checking the license for package CMake 3.22.1 in /usr/local/lib/android/sdk/licenses
+License for package CMake 3.22.1 accepted.
+Preparing "Install CMake 3.22.1 v.3.22.1".
+"Install CMake 3.22.1 v.3.22.1" ready.
+Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
+"Install CMake 3.22.1 v.3.22.1" complete.
+"Install CMake 3.22.1 v.3.22.1" finished.
+Running Gradle task 'assembleStableRelease'...                    696.2s
+✓ Built build/app/outputs/flutter-apk/app-armeabi-v7a-stable-release.apk (49.9MB)
+✓ Built build/app/outputs/flutter-apk/app-arm64-v8a-stable-release.apk (52.8MB)
+✓ Built build/app/outputs/flutter-apk/app-x86_64-stable-release.apk (55.0MB)

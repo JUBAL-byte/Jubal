@@ -1,0 +1,67 @@
+  Generating the build script.
+  Compiling the build script.
+  Reading the asset graph.
+  Creating the asset graph.
+  Doing initial build cleanup.
+  Deleting 13 declared outputs which already existed on disk.
+  Updating the asset graph.
+  Building, full build because builders changed.
+  0s freezed on 422 inputs; integration_test/app_test.dart
+  4s freezed on 422 inputs: 1 no-op; spent 4s sdk; lib/collections/env.dart
+  29s freezed on 422 inputs: 11 no-op; spent 21s analyzing, 4s sdk, 4s resolving; lib/collections/side_bar_tiles.dart
+  31s freezed on 422 inputs: 1 same, 130 no-op; spent 22s analyzing, 4s sdk, 4s resolving; lib/models/database/database.steps.dart
+  32s freezed on 422 inputs: 2 same, 224 no-op; spent 23s analyzing, 4s sdk, 4s resolving, 1s building; lib/pages/artist/artist.dart
+  33s freezed on 422 inputs: 2 same, 243 no-op; spent 24s analyzing, 4s sdk, 4s resolving, 1s building; lib/pages/library/user_local_tracks/local_folder.dart
+  35s freezed on 422 inputs: 2 same, 258 no-op; spent 24s analyzing, 4s sdk, 4s resolving, 2s building; lib/pages/search/search.dart
+  36s freezed on 422 inputs: 3 same, 303 no-op; spent 25s analyzing, 4s resolving, 4s sdk, 2s building; lib/provider/history/top/playlists.dart
+  36s freezed on 422 inputs: 4 same, 418 no-op; spent 25s analyzing, 4s resolving, 4s sdk, 2s building
+  0s json_serializable on 844 inputs; integration_test/app_test.dart
+  1s json_serializable on 844 inputs: 1 no-op; integration_test/app_test.freezed.dart
+  3s json_serializable on 844 inputs: 75 skipped, 76 no-op; spent 2s analyzing; lib/generated_plugin_registrant.freezed.dart
+  4s json_serializable on 844 inputs: 125 skipped, 126 no-op; spent 3s analyzing; lib/l10n/l10n.freezed.dart
+W json_serializable on lib/models/connect/connect.dart:
+  You are missing a required dependency on json_annotation in the "dependencies" section of your pubspec with a lower bound of at least "4.9.0".
+  5s json_serializable on 844 inputs: 197 skipped, 3 output, 199 no-op; spent 4s analyzing; lib/modules/root/bottom_player.freezed.dart
+  6s json_serializable on 844 inputs: 259 skipped, 3 output, 261 no-op; spent 5s analyzing; lib/pages/search/tabs/albums.freezed.dart
+  7s json_serializable on 844 inputs: 351 skipped, 5 output, 355 no-op; spent 5s analyzing, 1s building; lib/provider/skip_segments/skip_segments.freezed.dart
+  8s json_serializable on 844 inputs: 409 skipped, 5 output, 413 no-op; spent 6s analyzing, 1s building; test/drift/app_db/generated/schema_v3.freezed.dart
+  9s json_serializable on 844 inputs: 416 skipped, 5 output, 420 no-op; spent 7s analyzing, 1s building; test/drift/app_db/migration_test.freezed.dart
+  9s json_serializable on 844 inputs: 418 skipped, 5 output, 421 no-op; spent 7s analyzing, 1s building
+  0s envied_generator:envied on 844 inputs; integration_test/app_test.dart
+  0s envied_generator:envied on 844 inputs: 418 skipped, 1 output, 425 no-op
+  0s drift_dev on 3376 inputs; integration_test/app_test.dart
+  1s drift_dev on 3376 inputs: 253 skipped, 258 output; lib/pages/playlist/liked_playlist.freezed.dart
+  3s drift_dev on 3376 inputs: 547 skipped, 551 output, 7 no-op; spent 2s analyzing; lib/models/database/database.freezed.dart
+  4s drift_dev on 3376 inputs: 1225 skipped, 805 output, 179 no-op; spent 3s analyzing, 1s building; lib/models/database/database.dart.types.temp.dart
+  5s drift_dev on 3376 inputs: 2097 skipped, 805 output, 474 no-op; spent 3s analyzing, 2s building
+  0s source_gen:combining_builder on 1688 inputs; integration_test/app_test.dart
+  0s source_gen:combining_builder on 1688 inputs: 279 skipped, 1 output, 93 no-op; lib/hooks/utils/use_force_update.dart.types.temp.dart
+  1s source_gen:combining_builder on 1688 inputs: 1261 skipped, 1 output, 6 same, 420 no-op; spent 1s building
+  0s flutter_gen_runner on 1 input; $package$
+  0s flutter_gen_runner on 1 input: 1 output
+  0s auto_route_generator on 520 inputs; lib/pages/album/album.dart
+W auto_route_generator on lib/pages/album/album.dart:
+  
+  WARNING => Because [AlbumPage] has required parameters (album) that can not be parsed from path,
+  @PathParam() and @QueryParam() annotations will be ignored.
+  
+  0s auto_route_generator on 520 inputs: 1 output; lib/pages/album/album.dart.types.temp.dart
+W auto_route_generator on lib/pages/home/sections/section_items.dart:
+  
+  WARNING => Because [HomeBrowseSectionItemsPage] has required parameters (section) that can not be parsed from path,
+  @PathParam() and @QueryParam() annotations will be ignored.
+  
+W auto_route_generator on lib/pages/playlist/playlist.dart:
+  
+  WARNING => Because [PlaylistPage] has required parameters (playlist) that can not be parsed from path,
+  @PathParam() and @QueryParam() annotations will be ignored.
+  
+  1s auto_route_generator on 520 inputs: 434 skipped, 39 output, 24 no-op; lib/pages/stats/stats.dart.types.temp.dart
+  2s auto_route_generator on 520 inputs: 455 skipped, 41 output, 24 no-op
+  0s auto_route_generator:auto_router_module_generator on 3379 inputs; integration_test/app_test.dart
+  0s auto_route_generator:auto_router_module_generator on 3379 inputs: 2943 skipped, 436 no-op
+  0s auto_route_generator:auto_router_generator on 1 input; lib/collections/routes.dart
+  0s auto_route_generator:auto_router_generator on 1 input: 1 output
+  Running the post build.
+  Writing the asset graph.
+  Built with build_runner in 56s; wrote 867 outputs.
