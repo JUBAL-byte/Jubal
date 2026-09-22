@@ -1,0 +1,98 @@
+name: Jubal Lite
+
+# Builds the small rewrite that lives in `jubal-lite/`, independently of the
+# larger app at the repository root. Both can be pushed by the same commit;
+# a failure in one does not hold up the other.
+#
+# The Android project is generated during the build rather than stored, so
+# only the hand-written sources are in the repository. See jubal-lite/setup.sh.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "jubal-lite/**"
+      - ".github/workflows/jubal-lite.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.2"
+          channel: stable
+          cache: true
+
+      - name: Assemble the project
+        run: |
+          set -o pipefail
+          mkdir -p ci
+          chmod +x jubal-lite/setup.sh
+          ./jubal-lite/setup.sh "$GITHUB_WORKSPACE/lite-build" 2>&1 | tee ci/lite-01-setup.txt
+
+      - name: Analyze
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd lite-build
+          flutter analyze 2>&1 | tee "$GITHUB_WORKSPACE/ci/lite-02-analyze.txt"
+
+      - name: Build APK
+        id: apk
+        run: |
+          set -o pipefail
+          cd lite-build
+          flutter build apk --release 2>&1 | tee "$GITHUB_WORKSPACE/ci/lite-03-apk.txt"
+          ls -la build/app/outputs/flutter-apk/
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Jubal Lite"
+            echo
+            echo "APKs:"
+            ls -la lite-build/build/app/outputs/flutter-apk/*.apk 2>/dev/null || echo "(none built)"
+            echo
+            echo "<details><summary>build log tail</summary>"
+            echo
+            echo '```'
+            tail -n 60 ci/lite-03-apk.txt 2>/dev/null || echo "(missing)"
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish as a release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: lite-${{ github.run_number }}
+          name: Jubal Lite ${{ github.run_number }}
+          body: |
+            The small rewrite: search and play, text only, no sign-in.
+            Install `app-release.apk`.
+          files: lite-build/build/app/outputs/flutter-apk/*.apk
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jubal-lite
+          path: |
+            lite-build/build/app/outputs/flutter-apk/*.apk
+            ci/lite-*.txt
+          if-no-files-found: warn
