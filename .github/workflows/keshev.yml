@@ -1,0 +1,60 @@
+name: Keshev APK
+
+on:
+  push:
+    branches: [keshev]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keshev-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build signed APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Publish APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK="Keshev-${{ github.run_number }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK"
+          gh release create "keshev-${{ github.run_number }}" "$APK" \
+            --target "${{ github.sha }}" \
+            --title "קשב ${{ github.run_number }}" \
+            --notes "יישומון פודקאסטים בלי תמונות ובלי וידאו. מתקינים את הקובץ $APK בטלפון." \
+            --latest=false
+
+      - name: Publish build log on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          touch build.log
+          grep -E "^e: |error:|What went wrong|Could not|FAILED" build.log | head -40 | while IFS= read -r line; do echo "::error::$line"; done || true
+          gh release delete keshev-log --yes --cleanup-tag || true
+          gh release create keshev-log build.log \
+            --target "${{ github.sha }}" \
+            --title "Keshev build log" \
+            --notes "Last failed build log" \
+            --prerelease --latest=false
