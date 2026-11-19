@@ -117,13 +117,24 @@ class PlayerPanel(private val act: MainActivity, private val overlay: FrameLayou
             overlay.translationY = 0f
         }
         queueSignature = ""
+        blockFocusBehind(true)
         update()
         play.requestFocus()
+    }
+
+    /** With a keypad, focus must not wander to the screen hidden under the player. */
+    private fun blockFocusBehind(block: Boolean) {
+        val main = act.findViewById<android.view.ViewGroup>(R.id.main) ?: return
+        main.descendantFocusability =
+            if (block) android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS else android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
+        main.importantForAccessibility =
+            if (block) View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS else View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
     }
 
     fun hide() {
         if (!isShown) return
         isShown = false
+        blockFocusBehind(false)
         val h = act.window.decorView.height.toFloat()
         overlay.animate().translationY(if (h > 0) h else 2000f).setDuration(180).withEndAction {
             if (!isShown) overlay.visibility = View.GONE
