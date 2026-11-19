@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Base.Theme.Qeshev" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/q_primary</item>
+        <item name="colorOnPrimary">@color/q_on_primary</item>
+        <item name="colorPrimaryContainer">@color/q_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/q_on_primary_container</item>
+        <item name="colorSecondary">@color/q_secondary</item>
+        <item name="colorOnSecondary">@color/q_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/q_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/q_on_secondary_container</item>
+        <item name="android:colorBackground">@color/q_background</item>
+        <item name="colorOnBackground">@color/q_on_background</item>
+        <item name="colorSurface">@color/q_surface</item>
+        <item name="colorOnSurface">@color/q_on_surface</item>
+        <item name="colorSurfaceVariant">@color/q_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/q_on_surface_variant</item>
+        <item name="colorOutline">@color/q_outline</item>
+        <item name="colorOutlineVariant">@color/q_outline_variant</item>
+        <item name="colorSurfaceContainerLowest">@color/q_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/q_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/q_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/q_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/q_surface_container_highest</item>
+        <item name="colorError">@color/q_error</item>
+        <item name="colorOnError">@color/q_on_error</item>
+        <item name="android:windowBackground">@color/q_background</item>
+        <item name="android:statusBarColor">@color/q_background</item>
+        <item name="android:navigationBarColor">@color/q_surface_container</item>
+        <item name="android:windowLightStatusBar">@bool/q_light_bars</item>
+    </style>
+
+    <style name="Theme.Qeshev" parent="Base.Theme.Qeshev" />
+</resources>

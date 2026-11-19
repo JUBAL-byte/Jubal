@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sizes chosen automatically by screen width (smallest width qualifier) -->
+<resources>
+    <dimen name="top_bar_height">56dp</dimen>
+    <dimen name="top_title">21sp</dimen>
+    <dimen name="row_min_height">64dp</dimen>
+    <dimen name="row_pad_h">18dp</dimen>
+    <dimen name="row_pad_v">9dp</dimen>
+    <dimen name="row_gap">14dp</dimen>
+    <dimen name="tile">46dp</dimen>
+    <dimen name="tile_text">18sp</dimen>
+    <dimen name="row_title">16sp</dimen>
+    <dimen name="row_subtitle">13.5sp</dimen>
+    <dimen name="header_text">19sp</dimen>
+    <dimen name="header_pad_top">20dp</dimen>
+    <dimen name="big_title">28sp</dimen>
+    <dimen name="big_sub">14sp</dimen>
+    <dimen name="mini_tile">40dp</dimen>
+    <dimen name="mini_title">14.5sp</dimen>
+    <dimen name="mini_artist">12.5sp</dimen>
+    <dimen name="player_tile">200dp</dimen>
+    <dimen name="player_tile_text">80sp</dimen>
+    <dimen name="player_title">22sp</dimen>
+    <dimen name="player_artist">15sp</dimen>
+    <dimen name="play_size">72dp</dimen>
+    <dimen name="play_icon">38dp</dimen>
+    <dimen name="control_size">52dp</dimen>
+    <dimen name="player_pad_h">24dp</dimen>
+    <dimen name="message_text">15sp</dimen>
+    <dimen name="sheet_row_height">52dp</dimen>
+</resources>

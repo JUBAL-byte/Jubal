@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light: warm paper with one deep-teal accent -->
+    <color name="q_primary">#1F5F5B</color>
+    <color name="q_on_primary">#FFFFFF</color>
+    <color name="q_primary_container">#CDE8E3</color>
+    <color name="q_on_primary_container">#0B2E2B</color>
+    <color name="q_secondary">#4E6360</color>
+    <color name="q_on_secondary">#FFFFFF</color>
+    <color name="q_secondary_container">#D5E6E2</color>
+    <color name="q_on_secondary_container">#122B28</color>
+    <color name="q_background">#F7F5F0</color>
+    <color name="q_on_background">#1C1B19</color>
+    <color name="q_surface">#F7F5F0</color>
+    <color name="q_on_surface">#1C1B19</color>
+    <color name="q_surface_variant">#E8E4DC</color>
+    <color name="q_on_surface_variant">#5F5B53</color>
+    <color name="q_outline">#8A857B</color>
+    <color name="q_outline_variant">#D7D2C8</color>
+    <color name="q_surface_container_lowest">#FFFFFF</color>
+    <color name="q_surface_container_low">#F2EFE9</color>
+    <color name="q_surface_container">#EEEBE4</color>
+    <color name="q_surface_container_high">#E8E4DD</color>
+    <color name="q_surface_container_highest">#E2DED6</color>
+    <color name="q_error">#B3261E</color>
+    <color name="q_on_error">#FFFFFF</color>
+    <color name="q_tile_text">#2B2A27</color>
+    <color name="q_icon_bg">#1F5F5B</color>
+</resources>

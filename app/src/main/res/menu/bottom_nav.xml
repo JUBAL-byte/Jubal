@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_home"
+        android:icon="@drawable/nav_home"
+        android:title="בית" />
+    <item
+        android:id="@+id/nav_podcasts"
+        android:icon="@drawable/nav_podcasts"
+        android:title="פודקאסטים" />
+    <item
+        android:id="@+id/nav_videos"
+        android:icon="@drawable/nav_videos"
+        android:title="סרטונים" />
+    <item
+        android:id="@+id/nav_music"
+        android:icon="@drawable/nav_music"
+        android:title="מוזיקה" />
+    <item
+        android:id="@+id/nav_library"
+        android:icon="@drawable/nav_library"
+        android:title="ספרייה" />
+</menu>
