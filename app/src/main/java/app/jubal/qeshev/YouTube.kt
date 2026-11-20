@@ -266,7 +266,7 @@ object YouTube {
 
     private fun describe(d: Description?): String {
         val content = d?.content ?: return ""
-        return if (d.type == Description.HTML) Podcasts.plainText(content) else content.trim()
+        return if (d.type == Description.Type.HTML) Podcasts.plainText(content) else content.trim()
     }
 
     /**
