@@ -38,9 +38,10 @@ fun Context.isNight(): Boolean =
 
 /** Accent colors for search categories. Nothing in the app shows pictures or letter tiles. */
 object Accents {
+    // Quiet, muted tones that sit well on light and dark backgrounds
     private val COLORS = intArrayOf(
-        0xFF7B5CFF.toInt(), 0xFF00B4FF.toInt(), 0xFF00C9A7.toInt(), 0xFFFF8A3D.toInt(), 0xFFB44CFF.toInt(),
-        0xFF1FC8A0.toInt(), 0xFFFFB238.toInt(), 0xFF3D5AFE.toInt(), 0xFFFF5C8A.toInt(), 0xFF8E5CFF.toInt(),
+        0xFF8C84B8.toInt(), 0xFF7D9CB5.toInt(), 0xFF7FA796.toInt(), 0xFFB39A80.toInt(), 0xFFA58AA3.toInt(),
+        0xFF8E9AB0.toInt(), 0xFFA4A07F.toInt(), 0xFFB08A8A.toInt(), 0xFF86A3A8.toInt(), 0xFF9C8FB3.toInt(),
     )
 
     fun of(key: String): Int = COLORS[abs(key.hashCode() % COLORS.size)]
@@ -57,7 +58,7 @@ object Accents {
             setColor(context.color(R.color.q_surface_container_high))
         }
         return LayerDrawable(arrayOf(bar, surface)).apply {
-            setLayerInsetRelative(1, context.dp(5), 0, 0, 0)
+            setLayerInsetRelative(1, context.dp(4), 0, 0, 0)
         }
     }
 }
@@ -94,7 +95,11 @@ sealed interface Item
 
 class TitleItem(val text: String, val subtitle: String = "") : Item
 
-class HeaderItem(val text: String, val action: String? = null, val onAction: (() -> Unit)? = null) : Item
+/** A heading. [sub] marks a smaller one inside a [SectionItem]. */
+class HeaderItem(val text: String, val action: String? = null, val onAction: (() -> Unit)? = null, val sub: Boolean = false) : Item
+
+/** A main part of a page (on home: continue, music, podcasts, recommendations), set off by a thin line. */
+class SectionItem(val text: String, val first: Boolean = false) : Item
 
 class TrackItem(
     val track: Track,
@@ -327,6 +332,7 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
     private fun keyOf(item: Item): String = when (item) {
         is TitleItem -> "title:${item.text}"
         is HeaderItem -> "header:${item.text}"
+        is SectionItem -> "section:${item.text}"
         is TrackItem -> "track:${item.track.id}"
         is EntityItem -> "entity:${item.title}:${item.subtitle}"
         is MessageItem -> "message:${item.text.take(40)}"
@@ -359,6 +365,7 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
         is ChipsItem -> 10
         is HeroItem -> 11
         is LogoItem -> 12
+        is SectionItem -> 13
         is ShelfItem -> 6
     }
 
@@ -381,6 +388,7 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
             9 -> R.layout.item_category
             10 -> R.layout.item_chips
             11 -> R.layout.item_hero
+            13 -> R.layout.item_section
             else -> R.layout.item_logo
         }
         return Holder(LayoutInflater.from(parent.context).inflate(layout, parent, false))
@@ -396,8 +404,22 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
                 sub.text = item.subtitle
                 sub.visibility = if (item.subtitle.isBlank()) View.GONE else View.VISIBLE
             }
+            is SectionItem -> {
+                v.findViewById<TextView>(R.id.section_text).text = item.text
+                v.findViewById<View>(R.id.section_line).visibility = if (item.first) View.GONE else View.VISIBLE
+            }
             is HeaderItem -> {
-                v.findViewById<TextView>(R.id.header_text).text = item.text
+                val text = v.findViewById<TextView>(R.id.header_text)
+                text.text = item.text
+                if (item.sub) {
+                    text.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, context.resources.getDimension(R.dimen.sub_header_text))
+                    text.setTextColor(context.color(R.color.q_on_surface_variant))
+                    v.setPadding(v.paddingLeft, context.dp(10), v.paddingRight, v.paddingBottom)
+                } else {
+                    text.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, context.resources.getDimension(R.dimen.header_text))
+                    text.setTextColor(context.color(R.color.q_on_surface))
+                    v.setPadding(v.paddingLeft, context.resources.getDimensionPixelSize(R.dimen.header_pad_top), v.paddingRight, v.paddingBottom)
+                }
                 val action = v.findViewById<TextView>(R.id.header_action)
                 val onAction = item.onAction
                 if (item.action != null && onAction != null) {

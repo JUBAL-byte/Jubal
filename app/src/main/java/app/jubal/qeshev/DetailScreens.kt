@@ -493,7 +493,7 @@ class CollectionScreen(act: MainActivity, private val type: Int, private val fol
         if (t.isEmpty()) {
             items += MessageItem(
                 when (type) {
-                    LIKED -> "עוד אין כאן כלום. בכל שיר, פרק או שמע מיוטיוב, או בנגן, לחץ על הלב."
+                    LIKED -> "עוד אין כאן כלום. בכל שיר או פרק, או בנגן, לחץ על הלב."
                     DOWNLOADS -> "עוד לא שמרת כלום. בכל פריט אפשר לבחור \"שמור בטלפון\", ואז הוא יעבוד גם בלי אינטרנט."
                     HISTORY -> "עוד לא שמעת כלום."
                     else -> "הפלייליסט ריק. מכל פריט אפשר לבחור \"הוסף לפלייליסט\"."
@@ -524,5 +524,127 @@ class CollectionScreen(act: MainActivity, private val type: Int, private val fol
         const val DOWNLOADS = 1
         const val HISTORY = 2
         const val PLAYLIST = 3
+    }
+}
+
+// ====================================================================== Category (from search)
+
+/**
+ * The top picks of one category, like a genre page on Spotify: for music the leading
+ * playlists, songs and artists; for podcasts the chart of that category in Israel,
+ * plus more to listen to.
+ */
+class CategoryScreen(
+    act: MainActivity,
+    private val name: String,
+    private val query: String,
+    private val music: Boolean,
+    private val genre: String,
+) : ListScreen(act) {
+    override val title: String get() = name
+
+    private var songs: List<Track>? = null
+    private var playlists: List<YtList> = emptyList()
+    private var artists: List<ArtistRef> = emptyList()
+    private var shows: List<PodcastResult> = emptyList()
+    private var audio: List<Track> = emptyList()
+    private var error = false
+    private var loading = false
+
+    override fun onShown() {
+        super.onShown()
+        if (songs == null && !loading) load()
+    }
+
+    private fun load() {
+        loading = true
+        error = false
+        redraw()
+        act.lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    coroutineScope {
+                        fun yt(code: String, kind: Kind) = async {
+                            runCatching { YtSearch(query, code, kind).first() }.getOrDefault(emptyList())
+                        }
+                        if (music) {
+                            val pl = yt(YtSearch.MUSIC_PLAYLISTS, Kind.MUSIC)
+                            val s = yt(YtSearch.SONGS, Kind.MUSIC)
+                            val a = yt(YtSearch.ARTISTS, Kind.MUSIC)
+                            playlists = pl.await().mapNotNull { (it as? YtListResult)?.list }
+                            songs = s.await().mapNotNull { (it as? YtTrackResult)?.track }
+                            artists = a.await().mapNotNull { (it as? YtArtistResult)?.artist }
+                        } else {
+                            val chart = async { if (genre.isNotEmpty()) runCatching { Podcasts.topInGenre(genre, 30) }.getOrDefault(emptyList()) else emptyList() }
+                            val found = async { runCatching { Podcasts.search(query) }.getOrDefault(emptyList()) }
+                            val more = yt(YtSearch.VIDEOS, Kind.VIDEO)
+                            val seen = HashSet<String>()
+                            shows = (chart.await() + found.await()).filter { seen.add(it.feedUrl) }
+                            audio = more.await().mapNotNull { (it as? YtTrackResult)?.track }
+                            songs = emptyList()
+                        }
+                    }
+                }
+                val s = songs.orEmpty()
+                error = s.isEmpty() && playlists.isEmpty() && artists.isEmpty() && shows.isEmpty() && audio.isEmpty()
+            } catch (e: Exception) {
+                error = true
+            }
+            loading = false
+            redraw()
+        }
+    }
+
+    override fun render() {
+        val items = ArrayList<Item>()
+        val s = songs.orEmpty()
+        items += HeroItem(
+            title = name,
+            subtitle = if (music) "המובילים בקטגוריה" else "המובילים בישראל, ועוד להאזנה",
+            tileKey = name,
+            icon = if (music) R.drawable.ic_music_note else R.drawable.ic_podcasts,
+            kind = if (music) "מוזיקה" else "הסכתים ועוד",
+            buttons = if (s.isEmpty()) emptyList() else listOf(
+                HeroButton("נגן", R.drawable.ic_play_arrow_fill, HeroButton.FILLED) { act.playAll(s, null) },
+                HeroButton("ערבב", R.drawable.ic_shuffle, HeroButton.TONAL) { act.shuffle(s, null) },
+            ),
+        )
+        when {
+            loading -> items += LoadingItem
+            error -> {
+                items += MessageItem("לא הצלחתי לטעון את הקטגוריה. בדוק את החיבור ונסה שוב.")
+                items += ButtonsItem(listOf("נסה שוב" to { load() }))
+            }
+            music -> {
+                if (playlists.isNotEmpty()) {
+                    items += HeaderItem("פלייליסטים מובילים")
+                    items += ShelfItem("cat-pl:$name", playlists.map { l ->
+                        Card(
+                            l.title, Format.join("פלייליסט", l.artist), l.title, icon = R.drawable.ic_queue_music,
+                            onClick = { act.openAlbum(l) }, onMore = { act.listActions(l, null) },
+                        )
+                    })
+                }
+                if (s.isNotEmpty()) {
+                    items += HeaderItem("שירים", "נגן הכול") { act.playAll(s, null) }
+                    items += ShelfItem("cat-songs:$name", s.mapIndexed { i, t -> trackCard(t, t.artist, s, i) })
+                }
+                if (artists.isNotEmpty()) {
+                    items += HeaderItem("אמנים")
+                    items += ShelfItem("cat-artists:$name", artists.take(12).map { artistCard(it) })
+                }
+            }
+            else -> {
+                if (shows.isNotEmpty()) {
+                    items += HeaderItem("הסכתים מובילים")
+                    items += ShelfItem("cat-shows:$name", shows.map { podcastCard(it.name, it.author, it.feedUrl) })
+                }
+                if (audio.isNotEmpty()) {
+                    items += HeaderItem("עוד להאזנה")
+                    items += ShelfItem("cat-audio:$name", audio.map { trackCard(it) })
+                }
+            }
+        }
+        adapter.items = items
     }
 }

@@ -25,7 +25,6 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -804,7 +803,28 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+    /** A short message in JUBAL's own style (with its mark), just above the player and the bottom bar. */
+    fun toast(text: String) {
+        val note = findViewById<View>(R.id.note)
+        findViewById<TextView>(R.id.note_text).text = text
+        val above = (if (nav.visibility == View.VISIBLE) nav.height else 0) +
+            (if (mini.visibility == View.VISIBLE) mini.height + dp(6) else 0) + dp(14)
+        (note.layoutParams as FrameLayout.LayoutParams).bottomMargin = above
+        note.requestLayout()
+        handler.removeCallbacks(hideNote)
+        note.animate().cancel()
+        if (note.visibility != View.VISIBLE) {
+            note.alpha = 0f
+            note.visibility = View.VISIBLE
+        }
+        note.animate().alpha(1f).setDuration(160).start()
+        handler.postDelayed(hideNote, if (text.length > 45) 3_800L else 2_400L)
+    }
+
+    private val hideNote = Runnable {
+        val note = findViewById<View>(R.id.note)
+        note.animate().alpha(0f).setDuration(220).withEndAction { note.visibility = View.GONE }.start()
+    }
 
     // ------------------------------------------------------------------ updates (keep YouTube audio working)
 
@@ -825,9 +845,9 @@ class MainActivity : AppCompatActivity() {
         if (isFinishing || isDestroyed) return
         updateOffered = true
         val message = if (afterYouTubeError) {
-            "ייתכן שיוטיוב שינה משהו, ויש כבר גרסה מתוקנת. העדכון שומר על כל מה ששמרת."
+            "ייתכן שמשהו השתנה במקור השמע, ויש כבר גרסה מתוקנת. העדכון שומר על כל מה ששמרת."
         } else {
-            "בגרסה ${release.number} יש תיקונים, כדי שהשמע מיוטיוב ימשיך לעבוד. העדכון שומר על כל מה ששמרת."
+            "בגרסה ${release.number} יש תיקונים, כדי שההשמעה תמשיך לעבוד. העדכון שומר על כל מה ששמרת."
         }
         MaterialAlertDialogBuilder(this)
             .setTitle("גרסה חדשה של JUBAL")

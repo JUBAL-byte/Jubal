@@ -9,7 +9,7 @@ import org.json.JSONObject
 
 enum class Kind(val code: String, val label: String) {
     PODCAST("p", "פרק"),
-    VIDEO("v", "יוטיוב"),
+    VIDEO("v", "שמע"),
     MUSIC("m", "שיר");
 
     companion object {

@@ -37,4 +37,7 @@
     <dimen name="strip_h">30dp</dimen>
     <dimen name="strip_mark">14dp</dimen>
     <dimen name="strip_name">11dp</dimen>
+    <dimen name="section_text">22sp</dimen>
+    <dimen name="section_pad_top">16dp</dimen>
+    <dimen name="sub_header_text">15sp</dimen>
 </resources>

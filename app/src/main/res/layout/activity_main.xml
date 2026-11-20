@@ -18,9 +18,10 @@
         android:layout_height="@dimen/strip_h"
         android:background="@drawable/bg_strip"
         android:contentDescription="JUBAL"
-        android:gravity="center"
+        android:gravity="center_vertical|left"
         android:layoutDirection="ltr"
         android:orientation="horizontal"
+        android:paddingLeft="@dimen/row_pad_h"
         android:paddingBottom="1dp">
 
         <ImageView
@@ -33,7 +34,7 @@
         <ImageView
             android:layout_width="wrap_content"
             android:layout_height="@dimen/strip_name"
-            android:layout_marginStart="9dp"
+            android:layout_marginStart="8dp"
             android:adjustViewBounds="true"
             android:importantForAccessibility="no"
             android:src="@drawable/jubal_name" />
@@ -204,6 +205,43 @@
         android:visibility="gone" />
 
     </FrameLayout>
+    </LinearLayout>
+
+    <!-- Short messages from JUBAL, with its own mark instead of the system's -->
+    <LinearLayout
+        android:id="@+id/note"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="120dp"
+        android:accessibilityLiveRegion="polite"
+        android:background="@drawable/bg_note"
+        android:elevation="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="14dp"
+            android:adjustViewBounds="true"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_mark" />
+
+        <TextView
+            android:id="@+id/note_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:maxLines="3"
+            android:textColor="#F2F0EC"
+            android:textSize="14sp" />
     </LinearLayout>
 
     <!-- Opening screen: logo, name and slogan while the app gets ready -->

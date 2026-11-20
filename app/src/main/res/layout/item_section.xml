@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A main part of a page: a hairline, then a clear title -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/row_pad_h"
+    android:paddingTop="@dimen/section_pad_top"
+    android:paddingEnd="@dimen/row_pad_h"
+    android:paddingBottom="2dp">
+
+    <View
+        android:id="@+id/section_line"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginBottom="@dimen/section_pad_top"
+        android:background="?attr/colorOutlineVariant" />
+
+    <TextView
+        android:id="@+id/section_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-black"
+        android:textAlignment="viewStart"
+        android:textColor="?attr/colorOnSurface"
+        android:textSize="@dimen/section_text" />
+</LinearLayout>
