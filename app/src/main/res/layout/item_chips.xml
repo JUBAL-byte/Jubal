@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<HorizontalScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.chip.ChipGroup xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/chips"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:scrollbars="none">
-
-    <com.google.android.material.chip.ChipGroup
-        android:id="@+id/chips"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:paddingStart="@dimen/row_pad_h"
-        android:paddingEnd="@dimen/row_pad_h"
-        app:selectionRequired="true"
-        app:singleLine="true"
-        app:singleSelection="true" />
-</HorizontalScrollView>
+    android:paddingStart="@dimen/row_pad_h"
+    android:paddingTop="2dp"
+    android:paddingEnd="@dimen/row_pad_h"
+    android:paddingBottom="4dp"
+    app:chipSpacingHorizontal="6dp"
+    app:chipSpacingVertical="6dp"
+    app:selectionRequired="true"
+    app:singleLine="false"
+    app:singleSelection="true" />

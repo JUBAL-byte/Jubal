@@ -57,6 +57,20 @@ object Recs {
 
     private fun artistOf(t: Track): ArtistRef = ArtistRef(t.artist, t.artistUrl)
 
+    /**
+     * Music you chose yourself, as lowercase "title artist" text with a weight,
+     * so search can offer categories only to people who listen to them.
+     * A followed artist weighs as much as two songs.
+     */
+    fun chosenMusic(): List<Pair<String, Int>> {
+        val out = ArrayList<Pair<String, Int>>()
+        for ((t, s) in scores(setOf(Kind.MUSIC)).values) {
+            if (s > 0.5) out += "${t.title} ${t.artist}".lowercase() to 1
+        }
+        Store.followedArtists().forEach { out += it.name.lowercase() to 2 }
+        return out
+    }
+
     /** The artists you listen to most, followed artists first. */
     fun favoriteArtists(limit: Int): List<ArtistScore> {
         val byKey = LinkedHashMap<String, ArtistScore>()

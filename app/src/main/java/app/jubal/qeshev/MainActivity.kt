@@ -56,7 +56,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var topAction: ImageButton
     private lateinit var nav: BottomNavigationView
     private lateinit var mini: View
-    private lateinit var miniTile: TextView
+    private lateinit var miniWave: WaveView
     private lateinit var miniTitle: TextView
     private lateinit var miniArtist: TextView
     private lateinit var miniPlay: ImageButton
@@ -113,7 +113,7 @@ class MainActivity : AppCompatActivity() {
         topAction = findViewById(R.id.top_action)
         nav = findViewById(R.id.nav)
         mini = findViewById(R.id.mini)
-        miniTile = findViewById(R.id.mini_tile)
+        miniWave = findViewById(R.id.mini_wave)
         miniTitle = findViewById(R.id.mini_title)
         miniArtist = findViewById(R.id.mini_artist)
         miniPlay = findViewById(R.id.mini_play)
@@ -396,7 +396,7 @@ class MainActivity : AppCompatActivity() {
             mini.visibility = View.GONE
         } else {
             mini.visibility = View.VISIBLE
-            Tiles.apply(miniTile, track.artist.ifBlank { track.title })
+            miniWave.playing = c.isPlaying
             miniTitle.text = track.title
             miniArtist.text = track.artist
             miniPlay.setImageResource(if (c.playWhenReady) R.drawable.ic_pause_fill else R.drawable.ic_play_arrow_fill)

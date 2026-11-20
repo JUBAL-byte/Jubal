@@ -66,9 +66,10 @@ class ArtistScreen(act: MainActivity, private var artist: ArtistRef) : ListScree
         val following = Store.isFollowing(artist)
         items += HeroItem(
             title = artist.name.ifBlank { "אמן" },
-            subtitle = if ((p?.subscribers ?: -1L) > 0L) "${Format.big(p!!.subscribers)} מנויים" else "אמן",
+            subtitle = if ((p?.subscribers ?: -1L) > 0L) "${Format.big(p!!.subscribers)} מנויים" else "",
             tileKey = artist.name,
             round = true,
+            kind = "אמן",
             buttons = listOf(
                 HeroButton("נגן הכול", R.drawable.ic_play_arrow_fill, HeroButton.FILLED) { playAllAlbums() },
                 HeroButton("ערבב", R.drawable.ic_shuffle, HeroButton.TONAL) { shuffleAll() },
@@ -112,6 +113,7 @@ class ArtistScreen(act: MainActivity, private var artist: ArtistRef) : ListScree
             items += ShelfItem("albums:${artist.key}", p.albums.map { l ->
                 Card(
                     l.title, if (l.count > 0) "${l.count} שירים" else "אלבום", l.artist + l.title,
+                    icon = R.drawable.ic_album,
                     onClick = { act.openAlbum(l) }, onMore = { act.listActions(l, null) },
                 )
             })
@@ -217,6 +219,8 @@ class AlbumScreen(act: MainActivity, private var album: YtList) : ListScreen(act
             title = album.title.ifBlank { "רשימה" },
             subtitle = Format.join(album.artist, if (t != null) "${t.size} שירים" else "", if (total > 0) Format.duration(total) else ""),
             tileKey = album.artist.ifBlank { album.title } + album.title,
+            icon = if (isAlbum) R.drawable.ic_album else R.drawable.ic_queue_music,
+            kind = if (!isAlbum) "פלייליסט" else if (album.count in 1..3) "סינגל" else "אלבום",
             buttons = listOf(
                 HeroButton("נגן", R.drawable.ic_play_arrow_fill, HeroButton.FILLED) { t?.let { act.playAll(it, context) } },
                 HeroButton("ערבב", R.drawable.ic_shuffle, HeroButton.TONAL) { t?.let { act.shuffle(it, context) } },
@@ -311,6 +315,8 @@ class PodcastScreen(act: MainActivity, private val feedUrl: String, private var 
             title = f?.title ?: name,
             subtitle = by,
             tileKey = f?.title ?: name,
+            icon = R.drawable.ic_podcasts,
+            kind = "הסכת",
             buttons = if (f == null) emptyList() else listOf(
                 HeroButton("האחרון", R.drawable.ic_play_arrow_fill, HeroButton.FILLED) {
                     tracks.maxByOrNull { it.date }?.let { act.playOne(it) }
@@ -382,7 +388,10 @@ class PodcasterScreen(act: MainActivity, private val author: String) : ListScree
     override fun render() {
         val items = ArrayList<Item>()
         val s = shows
-        items += HeroItem(author, if (s != null) "יוצר · ${Format.count(s.size, "הסכת", "הסכתים")}" else "יוצר הסכתים", author, round = true)
+        items += HeroItem(
+            author, if (s != null) Format.count(s.size, "הסכת", "הסכתים") else "", author,
+            icon = R.drawable.ic_mic, kind = "יוצר הסכתים",
+        )
         when {
             s == null && error -> {
                 items += MessageItem("לא הצלחתי לטעון. בדוק את החיבור ונסה שוב.")
@@ -395,6 +404,7 @@ class PodcasterScreen(act: MainActivity, private val author: String) : ListScree
                 s.forEach { p ->
                     items += EntityItem(
                         p.name, Format.join(p.genres.firstOrNull() ?: "", if (p.episodeCount > 0) "${p.episodeCount} פרקים" else ""), p.name,
+                        R.drawable.ic_podcasts,
                         onClick = { act.openPodcast(p.feedUrl, p.name) },
                     )
                 }
@@ -468,7 +478,12 @@ class CollectionScreen(act: MainActivity, private val type: Int, private val fol
                 LIKED -> R.drawable.ic_favorite_fill
                 DOWNLOADS -> R.drawable.ic_download_done
                 HISTORY -> R.drawable.ic_history
-                else -> 0
+                else -> R.drawable.ic_queue_music
+            },
+            kind = when (type) {
+                DOWNLOADS -> "הורדות"
+                HISTORY -> "היסטוריה"
+                else -> "פלייליסט"
             },
             buttons = if (t.isEmpty()) emptyList() else listOf(
                 HeroButton("נגן", R.drawable.ic_play_arrow_fill, HeroButton.FILLED) { act.playAll(t, context) },
@@ -478,7 +493,7 @@ class CollectionScreen(act: MainActivity, private val type: Int, private val fol
         if (t.isEmpty()) {
             items += MessageItem(
                 when (type) {
-                    LIKED -> "עוד אין כאן כלום. בכל שיר, פרק או סרטון, או בנגן, לחץ על הלב."
+                    LIKED -> "עוד אין כאן כלום. בכל שיר, פרק או שמע מיוטיוב, או בנגן, לחץ על הלב."
                     DOWNLOADS -> "עוד לא שמרת כלום. בכל פריט אפשר לבחור \"שמור בטלפון\", ואז הוא יעבוד גם בלי אינטרנט."
                     HISTORY -> "עוד לא שמעת כלום."
                     else -> "הפלייליסט ריק. מכל פריט אפשר לבחור \"הוסף לפלייליסט\"."

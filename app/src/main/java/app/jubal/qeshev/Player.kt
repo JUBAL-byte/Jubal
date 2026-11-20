@@ -13,11 +13,11 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 
-/** The full-screen player that slides up over the app. Text only: a letter tile stands in for a cover. */
+/** The full-screen player that slides up over the app. Text only: the JUBAL bars stand where a cover would be. */
 class PlayerPanel(private val act: MainActivity, private val overlay: FrameLayout) {
     private val root: View = LayoutInflater.from(act).inflate(R.layout.view_player, overlay, false)
     private val label: TextView
-    private val tile: TextView
+    private val wave: WaveView
     private val title: TextView
     private val artist: TextView
     private val seek: Slider
@@ -42,7 +42,7 @@ class PlayerPanel(private val act: MainActivity, private val overlay: FrameLayou
     init {
         overlay.addView(root)
         label = root.findViewById(R.id.player_label)
-        tile = root.findViewById(R.id.player_tile)
+        wave = root.findViewById(R.id.player_wave)
         title = root.findViewById(R.id.player_title)
         artist = root.findViewById(R.id.player_artist)
         seek = root.findViewById(R.id.player_seek)
@@ -168,8 +168,7 @@ class PlayerPanel(private val act: MainActivity, private val overlay: FrameLayou
             label.text = ""
             title.text = "לא מתנגן כלום כרגע"
             artist.text = "בחר משהו לשמוע מהלשוניות למטה"
-            tile.text = ""
-            tile.background = null
+            wave.playing = false
             pos.text = ""
             dur.text = ""
             seek.value = 0f
@@ -183,7 +182,6 @@ class PlayerPanel(private val act: MainActivity, private val overlay: FrameLayou
 
         label.text = "מתנגן · ${t.kind.label}"
         if (title.text.toString() != t.title) {
-            Tiles.apply(tile, t.artist.ifBlank { t.title }, radiusFraction = 0.08f)
             title.text = t.title
             artist.text = t.artist
         }
@@ -200,6 +198,7 @@ class PlayerPanel(private val act: MainActivity, private val overlay: FrameLayou
         if (!touching && duration > 0) {
             seek.value = ((position * 1000f) / duration).coerceIn(0f, 1000f)
         }
+        wave.playing = c.isPlaying
         play.setImageResource(if (c.playWhenReady) R.drawable.ic_pause_fill else R.drawable.ic_play_arrow_fill)
         play.contentDescription = if (c.playWhenReady) "השהה" else "נגן"
         prev.alpha = if (c.hasPreviousMediaItem() || position > 3000) 1f else 0.4f

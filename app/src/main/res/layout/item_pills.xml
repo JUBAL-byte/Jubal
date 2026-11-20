@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.chip.ChipGroup xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/pills"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="@dimen/row_pad_h"
+    android:paddingTop="4dp"
+    android:paddingEnd="@dimen/row_pad_h"
+    android:paddingBottom="6dp"
+    app:chipSpacingHorizontal="8dp"
+    app:chipSpacingVertical="8dp"
+    app:singleLine="false" />

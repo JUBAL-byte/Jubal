@@ -58,23 +58,21 @@
             android:paddingEnd="@dimen/player_pad_h"
             android:paddingBottom="24dp">
 
-            <TextView
-                android:id="@+id/player_tile"
-                android:layout_width="@dimen/player_tile"
-                android:layout_height="@dimen/player_tile"
-                android:layout_marginTop="8dp"
-                android:gravity="center"
-                android:textSize="@dimen/player_tile_text"
-                android:textStyle="bold" />
+            <app.jubal.qeshev.WaveView
+                android:id="@+id/player_wave"
+                android:layout_width="@dimen/player_wave_w"
+                android:layout_height="@dimen/player_wave_h"
+                android:layout_marginTop="@dimen/player_wave_top" />
 
             <TextView
                 android:id="@+id/player_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="@dimen/player_wave_top"
                 android:ellipsize="end"
+                android:fontFamily="sans-serif-black"
                 android:gravity="center"
-                android:maxLines="3"
+                android:maxLines="4"
                 android:textColor="?attr/colorOnSurface"
                 android:textSize="@dimen/player_title"
                 android:textStyle="bold" />
@@ -87,7 +85,7 @@
                 android:background="?attr/selectableItemBackground"
                 android:ellipsize="end"
                 android:gravity="center"
-                android:maxLines="1"
+                android:maxLines="2"
                 android:padding="4dp"
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="@dimen/player_artist" />

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.view.ActionMode
 import android.view.LayoutInflater
 import android.view.Menu
@@ -17,7 +18,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
@@ -36,57 +36,28 @@ fun Context.color(res: Int): Int = ContextCompat.getColor(this, res)
 fun Context.isNight(): Boolean =
     (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
-/** Gradient tiles with a letter. They stand in for cover pictures: squares for albums and songs, circles for artists. */
-object Tiles {
-    private val PAIRS = arrayOf(
-        intArrayOf(0xFF7B5CFF.toInt(), 0xFFFF5CA8.toInt()),
-        intArrayOf(0xFF00B4FF.toInt(), 0xFF3D5AFE.toInt()),
-        intArrayOf(0xFF00C9A7.toInt(), 0xFF3A86FF.toInt()),
-        intArrayOf(0xFFFF8A3D.toInt(), 0xFFFF3D77.toInt()),
-        intArrayOf(0xFFB44CFF.toInt(), 0xFF5B3DF5.toInt()),
-        intArrayOf(0xFF1FC8A0.toInt(), 0xFF7BCB4A.toInt()),
-        intArrayOf(0xFFFFB238.toInt(), 0xFFFF6A3D.toInt()),
-        intArrayOf(0xFF3D5AFE.toInt(), 0xFF00C2E0.toInt()),
-        intArrayOf(0xFFFF5C8A.toInt(), 0xFFFFA45C.toInt()),
-        intArrayOf(0xFF8E5CFF.toInt(), 0xFF00C2FF.toInt()),
+/** Accent colors for search categories. Nothing in the app shows pictures or letter tiles. */
+object Accents {
+    private val COLORS = intArrayOf(
+        0xFF7B5CFF.toInt(), 0xFF00B4FF.toInt(), 0xFF00C9A7.toInt(), 0xFFFF8A3D.toInt(), 0xFFB44CFF.toInt(),
+        0xFF1FC8A0.toInt(), 0xFFFFB238.toInt(), 0xFF3D5AFE.toInt(), 0xFFFF5C8A.toInt(), 0xFF8E5CFF.toInt(),
     )
-    private val BRAND = intArrayOf(0xFF5B3DF5.toInt(), 0xFFE8509E.toInt())
 
-    fun colors(key: String, brand: Boolean = false): IntArray = if (brand) BRAND else PAIRS[abs(key.hashCode() % PAIRS.size)]
+    fun of(key: String): Int = COLORS[abs(key.hashCode() % COLORS.size)]
 
-    fun letter(key: String): String {
-        val c = key.firstOrNull { it.isLetterOrDigit() } ?: return "♪"
-        return c.uppercaseChar().toString()
-    }
-
-    fun drawable(key: String, round: Boolean, radiusPx: Float, brand: Boolean = false): GradientDrawable {
-        val d = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors(key, brand))
-        if (round) d.shape = GradientDrawable.OVAL else d.cornerRadius = radiusPx
-        return d
-    }
-
-    fun apply(view: TextView, key: String, round: Boolean = false, brand: Boolean = false, showLetter: Boolean = true, radiusFraction: Float = 0.14f) {
-        val context = view.context
-        view.text = if (showLetter) letter(key) else ""
-        view.setTextColor(context.color(R.color.q_tile_text))
-        view.setShadowLayer(8f, 0f, 2f, 0x33000000)
-        val bg = drawable(key, round, context.dp(10).toFloat(), brand)
-        view.background = bg
-        if (!round) {
-            view.post {
-                bg.cornerRadius = (view.width * radiusFraction).coerceAtLeast(context.dp(6).toFloat())
-                view.invalidate()
-            }
+    /** A rounded surface with a thin colored bar on the start side. */
+    fun category(context: Context, key: String): LayerDrawable {
+        val radius = context.dp(12).toFloat()
+        val bar = GradientDrawable().apply {
+            cornerRadius = radius
+            setColor(of(key))
         }
-    }
-
-    fun icon(view: ImageView, icon: Int) {
-        if (icon == 0) {
-            view.visibility = View.GONE
-        } else {
-            view.visibility = View.VISIBLE
-            view.setImageResource(icon)
-            view.imageTintList = ColorStateList.valueOf(view.context.color(R.color.q_tile_text))
+        val surface = GradientDrawable().apply {
+            cornerRadius = radius
+            setColor(context.color(R.color.q_surface_container_high))
+        }
+        return LayerDrawable(arrayOf(bar, surface)).apply {
+            setLayerInsetRelative(1, context.dp(5), 0, 0, 0)
         }
     }
 }
@@ -134,6 +105,7 @@ class TrackItem(
     val onMore: (() -> Unit)? = null,
 ) : Item
 
+/** An artist, album, podcast, playlist or setting. [icon] marks what it is; [tileKey] only keeps rows apart. */
 class EntityItem(
     val title: String,
     val subtitle: String,
@@ -151,21 +123,13 @@ class ButtonsItem(val buttons: List<Pair<String, () -> Unit>>) : Item
 
 object LoadingItem : Item
 
-/** A horizontal row of cards, like the shelves on Spotify's home screen. */
+/**
+ * A group of cards under a header. Shown as a short list with "show more",
+ * or as name pills when every card is an artist.
+ */
 class ShelfItem(val key: String, val cards: List<Card>) : Item
 
-/** Half-width shortcut tile (two per row). */
-class QuickItem(
-    val title: String,
-    val tileKey: String,
-    val icon: Int = 0,
-    val round: Boolean = false,
-    val brand: Boolean = false,
-    val onClick: () -> Unit,
-    val onMore: (() -> Unit)? = null,
-) : Item
-
-/** Half-width colored category tile in search. */
+/** Search category with a colored accent. */
 class CategoryItem(val title: String, val onClick: () -> Unit) : Item
 
 class ChipsItem(val options: List<String>, val selected: Int, val onSelect: (Int) -> Unit) : Item
@@ -178,7 +142,7 @@ class HeroButton(val label: String, val icon: Int = 0, val style: Int = TONAL, v
     }
 }
 
-/** The big header of an artist, album, playlist or podcast page. */
+/** The header of an artist, album, playlist or podcast page: what it is, a big title and actions. */
 class HeroItem(
     val title: String,
     val subtitle: String,
@@ -188,10 +152,12 @@ class HeroItem(
     val icon: Int = 0,
     val buttons: List<HeroButton> = emptyList(),
     val onSubtitle: (() -> Unit)? = null,
+    val kind: String = "",
 ) : Item
 
 class LogoItem(val version: String) : Item
 
+/** One entry of a [ShelfItem]. [round] marks an artist; [icon] marks albums, podcasts and playlists. */
 class Card(
     val title: String,
     val subtitle: String,
@@ -205,58 +171,83 @@ class Card(
     val onMore: (() -> Unit)? = null,
 )
 
-object Rows {
-    /** Fills one row view (item_row.xml) for a track. Used by lists and by the queue. */
-    fun bindTrack(root: View, item: TrackItem, currentId: String?) {
-        val context = root.context
-        val t = item.track
-        val number = root.findViewById<TextView>(R.id.row_number)
-        val tile = root.findViewById<TextView>(R.id.tile)
-        val icon = root.findViewById<ImageView>(R.id.tile_icon)
-        val title = root.findViewById<TextView>(R.id.row_title)
-        val subtitle = root.findViewById<TextView>(R.id.row_subtitle)
-        val progress = root.findViewById<LinearProgressIndicator>(R.id.row_progress)
-        val more = root.findViewById<ImageButton>(R.id.row_more)
+// Display-only items the adapter makes out of shelves
+private class CardRowItem(val shelf: String, val card: Card) : Item
+private class PillsItem(val key: String, val cards: List<Card>) : Item
+private class MoreItem(val key: String, val hidden: Int) : Item
 
-        number.visibility = if (item.number > 0) View.VISIBLE else View.GONE
-        number.text = item.number.toString()
-        Tiles.icon(icon, 0)
-        Tiles.apply(tile, t.artist.ifBlank { t.title })
-        val playing = currentId != null && currentId == t.id
-        title.text = t.title
-        title.setTextColor(context.color(if (playing) R.color.q_primary else R.color.q_on_surface))
-        title.paint.isFakeBoldText = playing
-        subtitle.text = if (playing) "מתנגן עכשיו" else item.subtitle
-        subtitle.visibility = if (subtitle.text.isNullOrBlank()) View.GONE else View.VISIBLE
-        if (item.progress in 0..1000 && t.kind != Kind.MUSIC) {
-            progress.visibility = View.VISIBLE
-            progress.setProgressCompat(item.progress, false)
-        } else {
-            progress.visibility = View.GONE
+object Rows {
+    private fun icon(view: ImageView, res: Int, highlight: Boolean) {
+        if (res == 0) {
+            view.visibility = View.GONE
+            return
         }
-        root.setOnClickListener { item.onClick() }
-        bindMore(root, more, item.onMore)
+        view.visibility = View.VISIBLE
+        view.setImageResource(res)
+        view.imageTintList = ColorStateList.valueOf(
+            view.context.color(if (highlight) R.color.q_primary else R.color.q_on_surface_variant)
+        )
     }
 
-    fun bindEntity(root: View, item: EntityItem) {
+    private fun fill(
+        root: View,
+        title: String,
+        subtitle: String,
+        iconRes: Int,
+        highlight: Boolean,
+        playing: Boolean,
+        number: Int,
+        progress: Int,
+        onClick: () -> Unit,
+        onMore: (() -> Unit)?,
+    ) {
         val context = root.context
-        root.findViewById<TextView>(R.id.row_number).visibility = View.GONE
-        val tile = root.findViewById<TextView>(R.id.tile)
-        val icon = root.findViewById<ImageView>(R.id.tile_icon)
-        val title = root.findViewById<TextView>(R.id.row_title)
-        val subtitle = root.findViewById<TextView>(R.id.row_subtitle)
-        root.findViewById<LinearProgressIndicator>(R.id.row_progress).visibility = View.GONE
-        val more = root.findViewById<ImageButton>(R.id.row_more)
+        val numberView = root.findViewById<TextView>(R.id.row_number)
+        val titleView = root.findViewById<TextView>(R.id.row_title)
+        val subView = root.findViewById<TextView>(R.id.row_subtitle)
+        val progressView = root.findViewById<LinearProgressIndicator>(R.id.row_progress)
 
-        Tiles.apply(tile, item.tileKey, round = item.round, brand = item.brand, showLetter = item.icon == 0)
-        Tiles.icon(icon, item.icon)
-        title.text = item.title
-        title.setTextColor(context.color(R.color.q_on_surface))
-        title.paint.isFakeBoldText = false
-        subtitle.text = item.subtitle
-        subtitle.visibility = if (item.subtitle.isBlank()) View.GONE else View.VISIBLE
-        root.setOnClickListener { item.onClick() }
-        bindMore(root, more, item.onMore)
+        numberView.visibility = if (number > 0 && !playing) View.VISIBLE else View.GONE
+        numberView.text = number.toString()
+        icon(root.findViewById(R.id.row_icon), if (playing) R.drawable.ic_graphic_eq else if (number > 0) 0 else iconRes, playing || highlight)
+        titleView.text = title
+        titleView.setTextColor(context.color(if (playing) R.color.q_primary else R.color.q_on_surface))
+        subView.text = if (playing) Format.join("מתנגן עכשיו", subtitle) else subtitle
+        subView.visibility = if (subView.text.isNullOrBlank()) View.GONE else View.VISIBLE
+        if (progress in 1..999) {
+            progressView.visibility = View.VISIBLE
+            progressView.setProgressCompat(progress, false)
+        } else {
+            progressView.visibility = View.GONE
+        }
+        root.setOnClickListener { onClick() }
+        bindMore(root, root.findViewById(R.id.row_more), onMore)
+    }
+
+    /** Fills one row view (item_row.xml) for a track. Used by lists and by the queue. */
+    fun bindTrack(root: View, item: TrackItem, currentId: String?) {
+        val t = item.track
+        val playing = currentId != null && currentId == t.id
+        fill(
+            root, t.title, item.subtitle, 0, false, playing, item.number,
+            if (t.kind != Kind.MUSIC) item.progress else -1, item.onClick, item.onMore,
+        )
+    }
+
+    fun entityIcon(icon: Int, round: Boolean): Int = when {
+        icon != 0 -> icon
+        round -> R.drawable.ic_person
+        else -> R.drawable.ic_album
+    }
+
+    fun bindEntity(root: View, item: EntityItem) =
+        fill(root, item.title, item.subtitle, entityIcon(item.icon, item.round), item.brand, false, 0, -1, item.onClick, item.onMore)
+
+    fun bindCard(root: View, card: Card, currentId: String?) {
+        val playing = currentId != null && card.id.isNotEmpty() && card.id == currentId
+        // A card with an id is a single track: no icon, like track rows
+        val iconRes = if (card.id.isNotEmpty() && card.icon == 0 && !card.round) 0 else entityIcon(card.icon, card.round)
+        fill(root, card.title, card.subtitle, iconRes, card.brand, playing, 0, card.progress, card.onClick, card.onMore)
     }
 
     private fun bindMore(root: View, more: ImageButton, onMore: (() -> Unit)?) {
@@ -269,70 +260,68 @@ object Rows {
             root.setOnLongClickListener(null)
         }
     }
-
-    fun bindCard(root: View, card: Card, currentId: String?) {
-        val context = root.context
-        val tile = root.findViewById<TextView>(R.id.card_tile)
-        val icon = root.findViewById<ImageView>(R.id.card_icon)
-        val title = root.findViewById<TextView>(R.id.card_title)
-        val sub = root.findViewById<TextView>(R.id.card_sub)
-        val progress = root.findViewById<LinearProgressIndicator>(R.id.card_progress)
-        Tiles.apply(tile, card.tileKey, round = card.round, brand = card.brand, showLetter = card.icon == 0, radiusFraction = 0.1f)
-        Tiles.icon(icon, card.icon)
-        val playing = currentId != null && card.id.isNotEmpty() && card.id == currentId
-        title.text = card.title
-        title.setTextColor(context.color(if (playing) R.color.q_primary else R.color.q_on_surface))
-        title.textAlignment = if (card.round) View.TEXT_ALIGNMENT_CENTER else View.TEXT_ALIGNMENT_VIEW_START
-        sub.text = if (playing) "מתנגן עכשיו" else card.subtitle
-        sub.textAlignment = title.textAlignment
-        sub.visibility = if (sub.text.isNullOrBlank()) View.GONE else View.VISIBLE
-        if (card.progress in 1..999) {
-            progress.visibility = View.VISIBLE
-            progress.setProgressCompat(card.progress, false)
-        } else {
-            progress.visibility = View.GONE
-        }
-        root.setOnClickListener { card.onClick() }
-        val onMore = card.onMore
-        if (onMore != null) root.setOnLongClickListener { onMore(); true } else root.setOnLongClickListener(null)
-    }
-}
-
-class CardsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<CardsAdapter.Holder>() {
-    var cards: List<Card> = emptyList()
-        set(value) {
-            field = value
-            notifyDataSetChanged()
-        }
-
-    class Holder(view: View) : RecyclerView.ViewHolder(view)
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder =
-        Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_card, parent, false))
-
-    override fun onBindViewHolder(holder: Holder, position: Int) = Rows.bindCard(holder.itemView, cards[position], currentId())
-
-    override fun getItemCount(): Int = cards.size
 }
 
 class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<ItemsAdapter.Holder>() {
     private var ids = LongArray(0)
+    private var shown: List<Item> = emptyList()
+    private val expanded = HashSet<String>()
+    private var recycler: RecyclerView? = null
 
+    /** What the screen wants to show. Shelves are turned into short lists here. */
     var items: List<Item> = emptyList()
         set(value) {
             field = value
-            // Stable ids keep keypad focus in place when the list is redrawn.
-            val seen = HashMap<String, Int>()
-            ids = LongArray(value.size) { i ->
-                val base = keyOf(value[i])
-                val n = seen.merge(base, 1) { a, b -> a + b } ?: 1
-                ("$base#$n").hashCode().toLong()
-            }
-            notifyDataSetChanged()
+            rebuild()
         }
 
     init {
         setHasStableIds(true)
+    }
+
+    override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
+        recycler = recyclerView
+    }
+
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        recycler = null
+    }
+
+    private fun rebuild() {
+        val out = ArrayList<Item>(items.size + 16)
+        for (item in items) {
+            if (item !is ShelfItem) {
+                out += item
+                continue
+            }
+            if (item.cards.isEmpty()) continue
+            if (item.cards.all { it.round }) {
+                out += PillsItem(item.key, item.cards)
+                continue
+            }
+            val open = item.key in expanded || item.cards.size <= SHELF_ROWS + 1
+            val visible = if (open) item.cards else item.cards.take(SHELF_ROWS)
+            visible.forEach { out += CardRowItem(item.key, it) }
+            if (!open) out += MoreItem(item.key, item.cards.size - SHELF_ROWS)
+        }
+        shown = out
+        // Stable ids keep keypad focus in place when the list is redrawn.
+        val seen = HashMap<String, Int>()
+        ids = LongArray(out.size) { i ->
+            val base = keyOf(out[i])
+            val n = seen.merge(base, 1) { a, b -> a + b } ?: 1
+            ("$base#$n").hashCode().toLong()
+        }
+        notifyDataSetChanged()
+    }
+
+    private fun expand(key: String, position: Int) {
+        expanded += key
+        rebuild()
+        // The "show more" line turns into the next row: keep the keypad there
+        recycler?.post {
+            recycler?.findViewHolderForAdapterPosition(position)?.itemView?.requestFocus()
+        }
     }
 
     private fun keyOf(item: Item): String = when (item) {
@@ -344,7 +333,9 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
         is ButtonsItem -> "buttons:${item.buttons.joinToString { it.first }}"
         is LoadingItem -> "loading"
         is ShelfItem -> "shelf:${item.key}"
-        is QuickItem -> "quick:${item.title}"
+        is CardRowItem -> "card:${item.shelf}:${item.card.id.ifEmpty { item.card.title + item.card.subtitle }}"
+        is PillsItem -> "pills:${item.key}"
+        is MoreItem -> "more:${item.key}"
         is CategoryItem -> "category:${item.title}"
         is ChipsItem -> "chips:${item.options.joinToString()}"
         is HeroItem -> "hero:${item.title}"
@@ -353,63 +344,52 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
 
     override fun getItemId(position: Int): Long = ids.getOrElse(position) { position.toLong() }
 
-    class Holder(view: View) : RecyclerView.ViewHolder(view) {
-        var shelfKey: String? = null
-    }
+    class Holder(view: View) : RecyclerView.ViewHolder(view)
 
-    override fun getItemViewType(position: Int): Int = when (items[position]) {
+    override fun getItemViewType(position: Int): Int = when (shown[position]) {
         is TitleItem -> 0
         is HeaderItem -> 1
-        is TrackItem -> 2
-        is EntityItem -> 3
+        is TrackItem, is EntityItem, is CardRowItem -> 2
         is MessageItem -> 4
         is ButtonsItem -> 5
         is LoadingItem -> 6
-        is ShelfItem -> 7
-        is QuickItem -> 8
+        is PillsItem -> 7
+        is MoreItem -> 8
         is CategoryItem -> 9
         is ChipsItem -> 10
         is HeroItem -> 11
         is LogoItem -> 12
+        is ShelfItem -> 6
     }
 
-    /** Two-column grid: shortcut and category tiles take one column, everything else the full width. */
-    fun spanSize(position: Int): Int = when (items.getOrNull(position)) {
-        is QuickItem, is CategoryItem -> 1
+    /** Two-column grid: search categories take one column, everything else the full width. */
+    fun spanSize(position: Int): Int = when (shown.getOrNull(position)) {
+        is CategoryItem -> 1
         else -> 2
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
-        val inflater = LayoutInflater.from(parent.context)
         val layout = when (viewType) {
             0 -> R.layout.item_title
             1 -> R.layout.item_header
-            2, 3 -> R.layout.item_row
+            2 -> R.layout.item_row
             4 -> R.layout.item_message
             5 -> R.layout.item_buttons
             6 -> R.layout.item_loading
-            7 -> R.layout.item_shelf
-            8 -> R.layout.item_quick
+            7 -> R.layout.item_pills
+            8 -> R.layout.item_more
             9 -> R.layout.item_category
             10 -> R.layout.item_chips
             11 -> R.layout.item_hero
             else -> R.layout.item_logo
         }
-        val view = inflater.inflate(layout, parent, false)
-        if (viewType == 7) {
-            val list = view as RecyclerView
-            list.layoutManager = LinearLayoutManager(parent.context, LinearLayoutManager.HORIZONTAL, false)
-            list.adapter = CardsAdapter(currentId)
-            list.itemAnimator = null
-            list.isNestedScrollingEnabled = false
-        }
-        return Holder(view)
+        return Holder(LayoutInflater.from(parent.context).inflate(layout, parent, false))
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val v = holder.itemView
         val context = v.context
-        when (val item = items[position]) {
+        when (val item = shown[position]) {
             is TitleItem -> {
                 v.findViewById<TextView>(R.id.title_text).text = item.text
                 val sub = v.findViewById<TextView>(R.id.title_sub)
@@ -430,6 +410,7 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
             }
             is TrackItem -> Rows.bindTrack(v, item, currentId())
             is EntityItem -> Rows.bindEntity(v, item)
+            is CardRowItem -> Rows.bindCard(v, item.card, currentId())
             is MessageItem -> v.findViewById<TextView>(R.id.message).text = item.text
             is ButtonsItem -> {
                 val box = v.findViewById<LinearLayout>(R.id.buttons_box)
@@ -442,30 +423,29 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
                     box.addView(b)
                 }
             }
-            is LoadingItem -> Unit
-            is ShelfItem -> {
-                val list = v as RecyclerView
-                val adapter = list.adapter as CardsAdapter
-                adapter.cards = item.cards
-                if (holder.shelfKey != item.key) {
-                    holder.shelfKey = item.key
-                    list.scrollToPosition(0)
+            is LoadingItem, is ShelfItem -> Unit
+            is PillsItem -> {
+                val group = v.findViewById<ChipGroup>(R.id.pills)
+                group.removeAllViews()
+                val inflater = LayoutInflater.from(context)
+                for (card in item.cards) {
+                    val chip = inflater.inflate(R.layout.chip_pill, group, false) as Chip
+                    chip.text = card.title
+                    chip.setOnClickListener { card.onClick() }
+                    val onMore = card.onMore
+                    if (onMore != null) chip.setOnLongClickListener { onMore(); true }
+                    group.addView(chip)
                 }
             }
-            is QuickItem -> {
-                val tile = v.findViewById<TextView>(R.id.quick_tile)
-                Tiles.apply(tile, item.tileKey, round = item.round, brand = item.brand, showLetter = item.icon == 0, radiusFraction = 0f)
-                Tiles.icon(v.findViewById(R.id.quick_icon), item.icon)
-                v.findViewById<TextView>(R.id.quick_title).text = item.title
-                val card = v.findViewById<View>(R.id.quick)
-                card.setOnClickListener { item.onClick() }
-                val onMore = item.onMore
-                if (onMore != null) card.setOnLongClickListener { onMore(); true } else card.setOnLongClickListener(null)
+            is MoreItem -> {
+                val t = v as TextView
+                t.text = "הצג עוד ${item.hidden}"
+                t.setOnClickListener { expand(item.key, holder.bindingAdapterPosition) }
             }
             is CategoryItem -> {
                 val t = v.findViewById<TextView>(R.id.category)
                 t.text = item.title
-                t.background = Tiles.drawable(item.title, false, context.dp(12).toFloat())
+                t.background = Accents.category(context, item.title)
                 t.setOnClickListener { item.onClick() }
             }
             is ChipsItem -> {
@@ -483,8 +463,11 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
                 }
             }
             is HeroItem -> {
-                Tiles.apply(v.findViewById(R.id.hero_tile), item.tileKey, item.round, item.brand, item.icon == 0, 0.08f)
-                Tiles.icon(v.findViewById(R.id.hero_icon), item.icon)
+                val iconView = v.findViewById<ImageView>(R.id.hero_icon)
+                iconView.setImageResource(Rows.entityIcon(item.icon, item.round))
+                val kind = v.findViewById<TextView>(R.id.hero_kind)
+                kind.text = item.kind
+                kind.visibility = if (item.kind.isBlank()) View.GONE else View.VISIBLE
                 v.findViewById<TextView>(R.id.hero_title).text = item.title
                 val sub = v.findViewById<TextView>(R.id.hero_sub)
                 sub.text = item.subtitle
@@ -494,7 +477,7 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
                 sub.isClickable = onSub != null
                 sub.isFocusable = onSub != null
                 if (onSub != null) sub.setOnClickListener { onSub() } else sub.setOnClickListener(null)
-                val box = v.findViewById<LinearLayout>(R.id.hero_buttons)
+                val box = v.findViewById<ViewGroup>(R.id.hero_buttons)
                 box.removeAllViews()
                 val inflater = LayoutInflater.from(context)
                 for (b in item.buttons) {
@@ -518,7 +501,12 @@ class ItemsAdapter(private val currentId: () -> String?) : RecyclerView.Adapter<
         }
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = shown.size
+
+    companion object {
+        /** Rows shown per group before "show more". */
+        const val SHELF_ROWS = 4
+    }
 }
 
 fun Context.recycler(adapter: ItemsAdapter): RecyclerView = RecyclerView(this).apply {

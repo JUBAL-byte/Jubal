@@ -17,39 +17,26 @@
 
     <TextView
         android:id="@+id/row_number"
-        android:layout_width="26dp"
+        android:layout_width="24dp"
         android:layout_height="wrap_content"
+        android:layout_marginEnd="@dimen/row_gap"
         android:gravity="center"
         android:textColor="?attr/colorOnSurfaceVariant"
         android:textSize="15sp"
         android:textStyle="bold"
         android:visibility="gone" />
 
-    <FrameLayout
-        android:layout_width="@dimen/tile"
-        android:layout_height="@dimen/tile">
-
-        <TextView
-            android:id="@+id/tile"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:textSize="@dimen/tile_text"
-            android:textStyle="bold" />
-
-        <ImageView
-            android:id="@+id/tile_icon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_gravity="center"
-            android:importantForAccessibility="no"
-            android:visibility="gone" />
-    </FrameLayout>
+    <ImageView
+        android:id="@+id/row_icon"
+        android:layout_width="@dimen/row_icon"
+        android:layout_height="@dimen/row_icon"
+        android:layout_marginEnd="@dimen/row_gap"
+        android:importantForAccessibility="no"
+        android:visibility="gone" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/row_gap"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -58,7 +45,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
-            android:maxLines="2"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="3"
             android:textAlignment="viewStart"
             android:textColor="?attr/colorOnSurface"
             android:textSize="@dimen/row_title" />
@@ -69,7 +57,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:ellipsize="end"
-            android:maxLines="1"
+            android:maxLines="2"
             android:textAlignment="viewStart"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="@dimen/row_subtitle" />
@@ -88,7 +76,7 @@
 
     <ImageButton
         android:id="@+id/row_more"
-        android:layout_width="44dp"
+        android:layout_width="40dp"
         android:layout_height="44dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="אפשרויות"

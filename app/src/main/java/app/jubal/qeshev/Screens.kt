@@ -123,6 +123,7 @@ abstract class ListScreen(act: MainActivity) : Screen(act) {
         title = l.title,
         subtitle = Format.join(if (l.count in 1..3) "סינגל" else "אלבום", l.artist),
         tileKey = l.artist.ifBlank { l.title } + l.title,
+        icon = R.drawable.ic_album,
         onClick = { act.openAlbum(l) },
         onMore = { act.listActions(l, null) },
     )
@@ -139,7 +140,7 @@ abstract class ListScreen(act: MainActivity) : Screen(act) {
         title = title,
         subtitle = author.ifBlank { "הסכת" },
         tileKey = title,
-        icon = 0,
+        icon = R.drawable.ic_podcasts,
         onClick = { act.openPodcast(feedUrl, title) },
     )
 
@@ -148,7 +149,7 @@ abstract class ListScreen(act: MainActivity) : Screen(act) {
         subtitle = contextLabel(ctx),
         tileKey = contextKey(ctx),
         round = ctx.type == PlayContext.ARTIST,
-        icon = if (ctx.type == PlayContext.LIKED) R.drawable.ic_favorite_fill else 0,
+        icon = contextIcon(ctx),
         brand = ctx.type == PlayContext.LIKED,
         id = if (ctx.type == PlayContext.SONG) ctx.track?.id ?: "" else "",
         onClick = { act.openContext(ctx) },
@@ -171,15 +172,14 @@ abstract class ListScreen(act: MainActivity) : Screen(act) {
         else -> Format.join(ctx.kind.label, ctx.subtitle)
     }
 
-    protected fun quick(ctx: PlayContext): QuickItem = QuickItem(
-        title = ctx.title,
-        tileKey = contextKey(ctx),
-        icon = if (ctx.type == PlayContext.LIKED) R.drawable.ic_favorite_fill else 0,
-        round = false,
-        brand = ctx.type == PlayContext.LIKED,
-        onClick = { act.openContext(ctx) },
-        onMore = ctx.track?.let { t -> { act.trackActions(t) } },
-    )
+    protected fun contextIcon(ctx: PlayContext): Int = when (ctx.type) {
+        PlayContext.ALBUM -> R.drawable.ic_album
+        PlayContext.YT_LIST, PlayContext.PLAYLIST -> R.drawable.ic_queue_music
+        PlayContext.LIKED -> R.drawable.ic_favorite_fill
+        PlayContext.ARTIST -> R.drawable.ic_person
+        PlayContext.PODCAST -> R.drawable.ic_podcasts
+        else -> 0
+    }
 }
 
 // ====================================================================== Home
@@ -237,10 +237,8 @@ class HomeScreen(act: MainActivity) : ListScreen(act) {
         val podcasts = filter != 1
         var anything = false
 
-        // Shortcuts to what you played recently (albums, playlists, artists, podcasts, songs)
+        // What you played recently (albums, playlists, artists, podcasts, songs)
         val recent = Store.contexts().filter { (music && it.kind != Kind.PODCAST) || (podcasts && it.kind == Kind.PODCAST) }
-        recent.take(6).forEach { items += quick(it) }
-        if (recent.isNotEmpty()) anything = true
 
         if (podcasts) {
             val episodes = Store.inProgress(setOf(Kind.PODCAST), 10)
@@ -256,13 +254,14 @@ class HomeScreen(act: MainActivity) : ListScreen(act) {
         if (music) {
             val musicCtx = recent.filter { it.kind == Kind.MUSIC }.take(12)
             if (musicCtx.isNotEmpty()) {
+                anything = true
                 items += HeaderItem("המשך האזנה למוזיקה")
                 items += ShelfItem("cont-music", musicCtx.map { contextCard(it) })
             }
             val videos = Store.inProgress(setOf(Kind.VIDEO), 8)
             if (videos.isNotEmpty()) {
                 anything = true
-                items += HeaderItem("המשך לשמוע שיעורים וסרטונים")
+                items += HeaderItem("המשך האזנה מיוטיוב")
                 items += ShelfItem("cont-video", videos.map { t ->
                     trackCard(t, Format.join(t.artist, Format.remaining(Store.remainingMs(t.id, t.durationSec))))
                 })
@@ -290,7 +289,7 @@ class HomeScreen(act: MainActivity) : ListScreen(act) {
             val vids = Recs.forYou(setOf(Kind.VIDEO), 10).map { it.track }
             if (vids.isNotEmpty()) {
                 anything = true
-                items += HeaderItem("סרטונים ושיעורים בשבילך")
+                items += HeaderItem("שמע מיוטיוב בשבילך")
                 items += ShelfItem("for-you-v", vids.map { trackCard(it) })
             }
         }
@@ -318,7 +317,7 @@ class HomeScreen(act: MainActivity) : ListScreen(act) {
                 when (filter) {
                     1 -> "כשתשמע שירים, יופיעו כאן האמנים שאתה אוהב, אלבומים מומלצים ושירים בשבילך."
                     2 -> "עקוב אחרי הסכתים כדי לראות כאן פרקים חדשים והמלצות."
-                    else -> "ברוך הבא ל-JUBAL.\nאפשר לשמוע כאן מוזיקה, הסכתים, ושיעורים והרצאות מיוטיוב. הכול בשמע בלבד, בלי תמונות ובלי סרטונים.\n" +
+                    else -> "ברוך הבא ל-JUBAL.\nאפשר לשמוע כאן מוזיקה, הסכתים וכל דבר מיוטיוב. הכול בשמע בלבד, בלי תמונות ובלי וידאו.\n" +
                         "ההמלצות לומדות רק ממה שבחרת לשמוע בעצמך: מה שמתנגן לבד כחלק מתור או פלייליסט לא נחשב."
                 }
             )
@@ -355,30 +354,83 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
     private var loading = false
     private var loadingMore = false
 
-    private val filters = listOf("הכול", "שירים", "אמנים", "אלבומים", "פלייליסטים", "הסכתים", "פרקים", "סרטונים")
+    private val filters = listOf("הכול", "שירים", "אמנים", "אלבומים", "פלייליסטים", "הסכתים", "פרקים", "יוטיוב")
 
-    private class Category(val title: String, val query: String, val filter: Int)
+    private class Category(val title: String, val query: String, val filter: Int, val keywords: List<String> = emptyList())
 
-    private val categories = listOf(
-        Category("שירי שבת", "שירי שבת", 4),
-        Category("מוזיקה חסידית", "מוזיקה חסידית", 4),
-        Category("פיוטים", "פיוטים", 4),
-        Category("מוזיקה יהודית", "מוזיקה יהודית", 4),
+    private val musicCategories = listOf(
+        Category("פופ", "pop hits", 4),
+        Category("רוק", "rock", 4),
+        Category("היפ הופ", "hip hop", 4),
         Category("ישראלי", "מוזיקה ישראלית", 4),
         Category("מזרחית", "מוזיקה מזרחית", 4),
-        Category("אקפלה", "אקפלה יהודית", 4),
-        Category("קלאסית", "מוזיקה קלאסית", 4),
-        Category("רגוע", "מוזיקה רגועה", 4),
-        Category("לאימון", "מוזיקה לאימון", 4),
+        Category("אלקטרונית", "electronic music", 4),
+        Category("ג׳אז", "jazz", 4),
+        Category("קלאסית", "classical music", 4),
+        Category("אינדי", "indie", 4),
+        Category("שנות ה־80", "80s hits", 4),
+        Category("אקפלה", "a cappella", 4),
+        Category("רגוע", "relaxing music", 4),
+        Category("לריכוז", "focus music", 4),
+        Category("לאימון", "workout music", 4),
+    )
+
+    private val podcastCategories = listOf(
         Category("שיעורי תורה", "שיעורי תורה", 5),
         Category("יהדות", "יהדות", 5),
         Category("היסטוריה", "היסטוריה", 5),
         Category("מדע", "מדע", 5),
+        Category("טכנולוגיה", "טכנולוגיה", 5),
         Category("כלכלה ועסקים", "כלכלה", 5),
         Category("חדשות", "חדשות", 5),
+        Category("ספורט", "ספורט", 5),
+        Category("פסיכולוגיה", "פסיכולוגיה", 5),
+        Category("בריאות", "בריאות", 5),
+    )
+
+    private val youtubeCategories = listOf(
         Category("הרצאות", "הרצאה", 7),
         Category("ספרים מוקלטים", "ספר מוקלט", 7),
+        Category("ראיונות", "ראיון", 7),
+        Category("סיפורים", "סיפור", 7),
     )
+
+    // Offered only to people who listen to this kind of music
+    private val shabbat = Category(
+        "שירי שבת", "שירי שבת", 4,
+        listOf("שבת", "shabbat", "shabbos", "זמירות", "zemirot", "לכה דודי", "lecha dodi", "שלום עליכם", "יה ריבון", "yah ribon"),
+    )
+    private val hasidic = Category(
+        "מוזיקה חסידית", "מוזיקה חסידית", 4,
+        listOf(
+            "חסידי", "hasidic", "chassidic", "chasidic", "ניגון", "nigun", "niggun", "קרליבך", "carlebach",
+            "מרדכי בן דוד", "mordechai ben david", "אברהם פריד", "avraham fried", "בני פרידמן", "benny friedman",
+            "מוטי שטיינמץ", "motty steinmetz", "שוואקי", "shwekey", "ליפא", "lipa schmeltzer", "ביני לנדאו",
+            "beri weber", "שלומי גרטנר", "shloime gertner", "חיים ישראל", "יידיש", "yiddish",
+        ),
+    )
+    private val piyutim = Category(
+        "פיוטים", "פיוטים", 4,
+        listOf("פיוט", "piyut", "piyyut", "בקשות", "ידיד נפש", "yedid nefesh", "אנעים זמירות", "דרור יקרא", "אדון עולם", "adon olam"),
+    )
+    private val jewish = Category(
+        "מוזיקה יהודית", "מוזיקה יהודית", 4,
+        listOf(
+            "jewish", "יהודי", "עם ישראל חי", "am yisrael chai", "ישי ריבו", "ishay ribo", "חנן בן ארי", "hanan ben ari",
+            "אהרן רזאל", "aaron razel", "יונתן רזאל", "yonatan razel", "שולי רנד", "shuli rand", "אבישי רוזן",
+        ),
+    )
+
+    /** Categories that match what you listen to: two songs, or one followed artist. */
+    private fun yourCategories(): List<Category> {
+        val heard = Recs.chosenMusic()
+        if (heard.isEmpty()) return emptyList()
+        fun listens(c: Category): Boolean =
+            heard.filter { (text, _) -> c.keywords.any { text.contains(it) } }.sumOf { it.second } >= 2
+        val out = listOf(shabbat, hasidic, piyutim).filter { listens(it) }.toMutableList()
+        if (out.isNotEmpty() || listens(jewish)) out += jewish
+        return out
+    }
 
     override fun build(): View {
         val root = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
@@ -559,8 +611,15 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
                     items += EntityItem(q, "", q, R.drawable.ic_history, onClick = { searchFor(q) })
                 }
             }
-            items += HeaderItem("עיון בקטגוריות")
-            categories.forEach { c -> items += CategoryItem(c.title) { searchFor(c.query, c.filter) } }
+            fun group(title: String, list: List<Category>) {
+                if (list.isEmpty()) return
+                items += HeaderItem(title)
+                list.forEach { c -> items += CategoryItem(c.title) { searchFor(c.query, c.filter) } }
+            }
+            group("לפי מה שאתה שומע", yourCategories())
+            group("מוזיקה", musicCategories)
+            group("הסכתים", podcastCategories)
+            group("מיוטיוב", youtubeCategories)
             adapter.items = items
             return
         }
@@ -624,11 +683,11 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
         if (playlists.isNotEmpty()) {
             items += HeaderItem("פלייליסטים", "הכול") { setFilter(4) }
             items += ShelfItem("s-lists", playlists.take(10).map { l ->
-                Card(l.title, l.artist, l.title, onClick = { act.openAlbum(l) }, onMore = { act.listActions(l, null) })
+                Card(l.title, l.artist, l.title, icon = R.drawable.ic_queue_music, onClick = { act.openAlbum(l) }, onMore = { act.listActions(l, null) })
             })
         }
         if (videos.isNotEmpty()) {
-            items += HeaderItem("סרטונים ושיעורים", "הכול") { setFilter(7) }
+            items += HeaderItem("שמע מיוטיוב", "הכול") { setFilter(7) }
             videos.take(3).forEach { items += row(it) }
         }
     }
@@ -644,6 +703,7 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
         l.title,
         Format.join(if (filter == 3) (if (l.count in 1..3) "סינגל" else "אלבום") else "פלייליסט", l.artist, if (l.count > 0) "${l.count} פריטים" else ""),
         l.artist.ifBlank { l.title } + l.title,
+        if (filter == 3) R.drawable.ic_album else R.drawable.ic_queue_music,
         onClick = { act.openAlbum(l) },
         onMore = { act.listActions(l, null) },
     )
@@ -652,6 +712,7 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
         p.name,
         Format.join(p.author, if (p.episodeCount > 0) "${p.episodeCount} פרקים" else ""),
         p.name,
+        R.drawable.ic_podcasts,
         onClick = { act.openPodcast(p.feedUrl, p.name) },
     )
 }
@@ -691,6 +752,7 @@ class LibraryScreen(act: MainActivity) : ListScreen(act) {
             Store.folders().forEach { f ->
                 items += EntityItem(
                     f.name, Format.join("פלייליסט", Format.count(f.tracks.size, "פריט", "פריטים")), f.name,
+                    R.drawable.ic_queue_music,
                     onClick = { act.push(CollectionScreen(act, CollectionScreen.PLAYLIST, f.id)) },
                     onMore = { playlistActions(act, f) },
                 )
@@ -713,7 +775,7 @@ class LibraryScreen(act: MainActivity) : ListScreen(act) {
         }
         if (all || filter == 4) {
             Store.subscriptions().forEach { s ->
-                items += EntityItem(s.title, Format.join("הסכת", s.author), s.title, onClick = { act.openPodcast(s.feedUrl, s.title) })
+                items += EntityItem(s.title, Format.join("הסכת", s.author), s.title, R.drawable.ic_podcasts, onClick = { act.openPodcast(s.feedUrl, s.title) })
                 shown++
             }
         }
@@ -781,7 +843,7 @@ class SettingsScreen(act: MainActivity) : ListScreen(act) {
         items += HeaderItem("השמעה")
         items += EntityItem(
             "המשך אוטומטי עם המלצות",
-            if (Store.autoplay()) "מופעל: אחרי שיר או סרטון יתנגן משהו דומה" else "כבוי",
+            if (Store.autoplay()) "מופעל: בסוף שיר או שמע מיוטיוב יתנגן משהו דומה" else "כבוי",
             "המשך", R.drawable.ic_autoplay,
             onClick = { Store.setAutoplay(!Store.autoplay()) },
         )
@@ -860,7 +922,7 @@ class SettingsScreen(act: MainActivity) : ListScreen(act) {
     companion object {
         const val RECS_HELP =
             "ההמלצות נבנות רק בטלפון שלך, ברוח יוטיוב וספוטיפיי:\n\n" +
-                "• מה שנחשב: שיר, סרטון או פרק שבחרת לשמוע בעצמך, האזנה של יותר מ-30 שניות, האזנה עד הסוף, \"אהבתי\", הוספה לפלייליסט, שמירה בטלפון ומעקב אחרי אמן או הסכת.\n" +
+                "• מה שנחשב: שיר, שמע מיוטיוב או פרק שבחרת לשמוע בעצמך, האזנה של יותר מ-30 שניות, האזנה עד הסוף, \"אהבתי\", הוספה לפלייליסט, שמירה בטלפון ומעקב אחרי אמן או הסכת.\n" +
                 "• מה שלא נחשב: מה שמתנגן לבד אחרי משהו אחר, כחלק מתור, אלבום, פלייליסט או השמעה אוטומטית.\n" +
                 "• דילוג בתוך 30 שניות נחשב כ\"פחות מתאים\", גם לשיר וגם לאמן.\n" +
                 "• ההצעות עצמן מגיעות מ\"הבא בתור\" של יוטיוב לשירים שבחרת (מי ששומע את זה שומע גם את זה). שיר שמומלץ מכמה שירים שאהבת עולה למעלה, ואותות ישנים נחלשים עם הזמן.\n" +

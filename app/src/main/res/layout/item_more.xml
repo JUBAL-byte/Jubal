@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/more"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:paddingStart="@dimen/row_pad_h"
+    android:paddingTop="10dp"
+    android:paddingEnd="@dimen/row_pad_h"
+    android:paddingBottom="10dp"
+    android:textAlignment="viewStart"
+    android:textColor="?attr/colorPrimary"
+    android:textSize="14sp"
+    android:textStyle="bold" />
