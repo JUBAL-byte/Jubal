@@ -1,0 +1,69 @@
+name: JUBAL app - YouTube fixes
+
+# The JUBAL Android app (branch `qeshev`) plays YouTube audio through NewPipe's
+# extractor. When YouTube changes something, NewPipe ships a fixed extractor.
+#
+# Every day this compares JUBAL's extractor version (extractor.version on
+# `qeshev`) with the one NewPipe's released app uses, and with the newest
+# extractor release. If there is something newer, it starts a JUBAL build with
+# it. That build keeps the new version only if it succeeds, and the app then
+# offers the update by itself. Nothing here touches the Flutter app on `main`.
+#
+# It lives on `main` because GitHub runs scheduled workflows only from the
+# default branch.
+
+on:
+  schedule:
+    - cron: "37 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Look for a newer YouTube extractor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -u
+          current=$(gh api "repos/$REPO/contents/extractor.version?ref=qeshev" --jq .content | base64 -d | tr -d '[:space:]')
+          newpipe=$(curl -fsSL https://raw.githubusercontent.com/TeamNewPipe/NewPipe/master/gradle/libs.versions.toml \
+            | sed -n 's/^teamnewpipe-newpipe-extractor *= *"\([^"]*\)".*/\1/p' | head -1 || true)
+          tag=$(git ls-remote --tags --refs https://github.com/TeamNewPipe/NewPipeExtractor.git 'v*' \
+            | sed 's|.*refs/tags/||' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)
+          echo "JUBAL uses: $current | NewPipe app uses: ${newpipe:-?} | newest release: ${tag:-?}"
+
+          semver() { echo "$1" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; }
+          newest() { printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1; }
+
+          # NewPipe's own choice wins (it may be a hotfix commit); a newer release beats an older one
+          candidate="${newpipe:-$tag}"
+          if [ -n "$tag" ] && semver "$candidate" && [ "$(newest "$candidate" "$tag")" = "$tag" ]; then
+            candidate="$tag"
+          fi
+          if [ -z "$candidate" ] || [ "$candidate" = "$current" ]; then
+            echo "Nothing new."; exit 0
+          fi
+          if semver "$candidate" && semver "$current" && [ "$(newest "$candidate" "$current")" = "$current" ]; then
+            echo "JUBAL is already ahead."; exit 0
+          fi
+
+          echo "Building JUBAL with extractor $candidate"
+          gh workflow run qeshev.yml --repo "$REPO" --ref qeshev -f extractor="$candidate"
+
+      # GitHub pauses scheduled workflows after 60 days without commits
+      - uses: actions/checkout@v4
+      - name: Keep the daily check alive
+        run: |
+          age=$(( $(date +%s) - $(git log -1 --format=%ct) ))
+          if [ "$age" -gt $(( 50 * 86400 )) ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "Keep the daily JUBAL YouTube check running [skip ci]"
+            git push
+          fi
