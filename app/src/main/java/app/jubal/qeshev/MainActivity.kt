@@ -573,7 +573,7 @@ class MainActivity : AppCompatActivity() {
                 val head = Format.join(
                     track.artist.ifBlank { d?.uploader ?: "" },
                     Format.duration(track.durationSec),
-                    if ((d?.views ?: -1) >= 0) "${Format.big(d!!.views)} צפיות" else "",
+                    if ((d?.views ?: -1L) >= 0L) "${Format.big(d!!.views)} צפיות" else "",
                     d?.date ?: "",
                 )
                 val body = d?.description?.ifBlank { null } ?: "אין תיאור."

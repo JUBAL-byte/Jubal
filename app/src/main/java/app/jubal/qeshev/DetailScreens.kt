@@ -66,7 +66,7 @@ class ArtistScreen(act: MainActivity, private var artist: ArtistRef) : ListScree
         val following = Store.isFollowing(artist)
         items += HeroItem(
             title = artist.name.ifBlank { "אמן" },
-            subtitle = if ((p?.subscribers ?: -1) > 0) "${Format.big(p!!.subscribers)} מנויים" else "אמן",
+            subtitle = if ((p?.subscribers ?: -1L) > 0L) "${Format.big(p!!.subscribers)} מנויים" else "אמן",
             tileKey = artist.name,
             round = true,
             buttons = listOf(
