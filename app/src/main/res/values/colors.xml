@@ -29,4 +29,7 @@
     <color name="q_brand_start">#7B5CFF</color>
     <color name="q_brand_end">#FF5CA8</color>
     <color name="q_splash_bg">#0C0C10</color>
+    <!-- The thin brand strip at the top: always dark -->
+    <color name="q_strip">#17171C</color>
+    <color name="q_strip_line">#17171C</color>
 </resources>

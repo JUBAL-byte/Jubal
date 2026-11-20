@@ -34,4 +34,7 @@
     <dimen name="player_wave_w">200dp</dimen>
     <dimen name="player_wave_h">130dp</dimen>
     <dimen name="player_wave_top">40dp</dimen>
+    <dimen name="strip_h">36dp</dimen>
+    <dimen name="strip_mark">17dp</dimen>
+    <dimen name="strip_name">13dp</dimen>
 </resources>

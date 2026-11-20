@@ -25,9 +25,9 @@
         <item name="colorError">@color/q_error</item>
         <item name="colorOnError">@color/q_on_error</item>
         <item name="android:windowBackground">@color/q_background</item>
-        <item name="android:statusBarColor">@color/q_background</item>
+        <item name="android:statusBarColor">@color/q_strip</item>
         <item name="android:navigationBarColor">@color/q_surface_container</item>
-        <item name="android:windowLightStatusBar">@bool/q_light_bars</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <style name="Theme.Qeshev" parent="Base.Theme.Qeshev" />

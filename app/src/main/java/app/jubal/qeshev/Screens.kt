@@ -185,7 +185,8 @@ abstract class ListScreen(act: MainActivity) : Screen(act) {
 // ====================================================================== Home
 
 class HomeScreen(act: MainActivity) : ListScreen(act) {
-    override val title = "JUBAL"
+    // The name is in the strip above; the bar greets instead
+    override val title: String get() = Format.greeting()
     override val topIcon = R.drawable.ic_history
     override val topLabel = "הושמע לאחרונה"
     override fun onTopAction() = act.push(CollectionScreen(act, CollectionScreen.HISTORY))
@@ -231,7 +232,6 @@ class HomeScreen(act: MainActivity) : ListScreen(act) {
 
     override fun render() {
         val items = ArrayList<Item>()
-        items += TitleItem(Format.greeting())
         items += ChipsItem(listOf("הכול", "מוזיקה", "הסכתים"), filter) { filter = it; render() }
         val music = filter != 2
         val podcasts = filter != 1

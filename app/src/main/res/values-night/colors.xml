@@ -25,4 +25,7 @@
     <color name="q_error">#F2B8B5</color>
     <color name="q_on_error">#601410</color>
     <color name="q_tile_text">#FFFFFF</color>
+    <!-- A little lighter than the background, with a hairline, so the strip stays separate -->
+    <color name="q_strip">#1F1E27</color>
+    <color name="q_strip_line">#383645</color>
 </resources>
