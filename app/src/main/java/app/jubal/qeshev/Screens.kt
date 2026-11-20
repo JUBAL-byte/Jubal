@@ -287,7 +287,7 @@ class HomeScreen(act: MainActivity) : ListScreen(act) {
                     items += ShelfItem("artists", artists.map { artistCard(it.artist) })
                 }
                 if (songs.isNotEmpty()) {
-                    items += HeaderItem("שירים", "נגן הכול", { act.playAll(songs, null) }, sub = true)
+                    items += HeaderItem("שירים", "נגן הכול", sub = true) { act.playAll(songs, null) }
                     items += ShelfItem("for-you", songs.mapIndexed { i, t -> trackCard(t, t.artist, songs, i) })
                 }
                 if (showAlbums) {
@@ -306,7 +306,7 @@ class HomeScreen(act: MainActivity) : ListScreen(act) {
                 anything = true
                 section("הסכתים בשבילך")
                 if (following) {
-                    items += HeaderItem("פרקים חדשים", "רענון", { load(true) }, sub = true)
+                    items += HeaderItem("פרקים חדשים", "רענון", sub = true) { load(true) }
                     val eps = Recs.cachedEpisodes()
                     when {
                         eps == null -> items += LoadingItem

@@ -96,7 +96,7 @@ sealed interface Item
 class TitleItem(val text: String, val subtitle: String = "") : Item
 
 /** A heading. [sub] marks a smaller one inside a [SectionItem]. */
-class HeaderItem(val text: String, val action: String? = null, val onAction: (() -> Unit)? = null, val sub: Boolean = false) : Item
+class HeaderItem(val text: String, val action: String? = null, val sub: Boolean = false, val onAction: (() -> Unit)? = null) : Item
 
 /** A main part of a page (on home: continue, music, podcasts, recommendations), set off by a thin line. */
 class SectionItem(val text: String, val first: Boolean = false) : Item
