@@ -37,6 +37,6 @@
     <dimen name="card_title">14sp</dimen>
     <dimen name="card_sub">12.5sp</dimen>
     <dimen name="shelf_pad">12dp</dimen>
-    <dimen name="splash_logo">92dp</dimen>
-    <dimen name="splash_title">40sp</dimen>
+    <dimen name="splash_logo">96dp</dimen>
+    <dimen name="splash_wordmark">196dp</dimen>
 </resources>

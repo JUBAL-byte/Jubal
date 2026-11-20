@@ -2,7 +2,7 @@
 <resources>
     <style name="Theme.Qeshev" parent="Base.Theme.Qeshev">
         <item name="android:windowLightNavigationBar">@bool/q_light_bars</item>
-        <item name="android:windowSplashScreenBackground">#6A4CFF</item>
+        <item name="android:windowSplashScreenBackground">#151519</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_logo</item>
     </style>
 </resources>

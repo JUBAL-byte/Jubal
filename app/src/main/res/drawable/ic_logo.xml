@@ -1,24 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- JUBAL: a minimal lyre (Jubal, "father of all who play the lyre and pipe") -->
+<!-- JUBAL: seven rounded bars, a minimal sound wave -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:pathData="M36,30C30,48 36,68 54,80C72,68 78,48 72,30"
-        android:strokeWidth="6"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
-    <path
-        android:pathData="M31,36L77,36"
-        android:strokeWidth="6"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M46,36L47,69M54,36L54,75M62,36L61,69"
-        android:strokeWidth="3.5"
-        android:strokeColor="#FFFFFF"
-        android:strokeLineCap="round" />
+    <path android:fillColor="#B3B2B0" android:pathData="M23.93,48.01A2.39,2.39 0,0 1 28.72,48.01L28.72,59.99A2.39,2.39 0,0 1 23.93,59.99Z" />
+    <path android:fillColor="#D1CFCD" android:pathData="M33.15,41.11A2.39,2.39 0,0 1 37.94,41.11L37.94,66.89A2.39,2.39 0,0 1 33.15,66.89Z" />
+    <path android:fillColor="#E7E5E1" android:pathData="M42.38,34.21A2.39,2.39 0,0 1 47.17,34.21L47.17,73.79A2.39,2.39 0,0 1 42.38,73.79Z" />
+    <path android:fillColor="#F2F0EC" android:pathData="M51.61,44.07A2.39,2.39 0,0 1 56.39,44.07L56.39,63.93A2.39,2.39 0,0 1 51.61,63.93Z" />
+    <path android:fillColor="#E7E5E1" android:pathData="M60.83,37.17A2.39,2.39 0,0 1 65.62,37.17L65.62,70.83A2.39,2.39 0,0 1 60.83,70.83Z" />
+    <path android:fillColor="#D1CFCD" android:pathData="M70.06,46.04A2.39,2.39 0,0 1 74.85,46.04L74.85,61.96A2.39,2.39 0,0 1 70.06,61.96Z" />
+    <path android:fillColor="#B3B2B0" android:pathData="M79.28,49.99A2.39,2.39 0,0 1 84.07,49.99L84.07,58.01A2.39,2.39 0,0 1 79.28,58.01Z" />
 </vector>
