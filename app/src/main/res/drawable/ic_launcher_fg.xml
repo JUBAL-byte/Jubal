@@ -1,21 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- JUBAL: a minimal lyre (Jubal, "father of all who play the lyre and pipe") -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:pathData="M54,32a20,20 0 1,1 0,40a20,20 0 1,1 0,-40z"
+        android:pathData="M36,30C30,48 36,68 54,80C72,68 78,48 72,30"
         android:strokeWidth="6"
-        android:strokeColor="#FFFFFF" />
-    <path
-        android:pathData="M66,64L77,75"
+        android:strokeColor="#FFFFFF"
         android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M31,36L77,36"
         android:strokeWidth="6"
-        android:strokeColor="#FFFFFF" />
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
     <path
-        android:pathData="M46,48L46,56M54,44L54,60M62,48L62,56"
-        android:strokeLineCap="round"
-        android:strokeWidth="4"
-        android:strokeColor="#FFFFFF" />
+        android:pathData="M46,36L47,69M54,36L54,75M62,36L61,69"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
 </vector>

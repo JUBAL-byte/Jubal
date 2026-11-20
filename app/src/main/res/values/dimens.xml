@@ -28,4 +28,15 @@
     <dimen name="player_pad_h">16dp</dimen>
     <dimen name="message_text">14.5sp</dimen>
     <dimen name="sheet_row_height">48dp</dimen>
+    <dimen name="card_tile">108dp</dimen>
+    <dimen name="card_w">120dp</dimen>
+    <dimen name="quick_h">52dp</dimen>
+    <dimen name="category_h">84dp</dimen>
+    <dimen name="hero_tile">132dp</dimen>
+    <dimen name="hero_title">24sp</dimen>
+    <dimen name="card_title">13sp</dimen>
+    <dimen name="card_sub">11.5sp</dimen>
+    <dimen name="shelf_pad">8dp</dimen>
+    <dimen name="splash_logo">76dp</dimen>
+    <dimen name="splash_title">34sp</dimen>
 </resources>

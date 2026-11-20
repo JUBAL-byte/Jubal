@@ -1,5 +1,10 @@
 package app.jubal.qeshev
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -11,9 +16,9 @@ import android.widget.LinearLayout
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.chip.Chip
-import com.google.android.material.chip.ChipGroup
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -30,6 +35,8 @@ abstract class Screen(protected val act: MainActivity) {
     open fun onShown() {}
     open fun onHidden() {}
     open fun onPlayerItemChanged() {}
+    /** The tab was tapped again while already showing this page. */
+    open fun onReselected() {}
 }
 
 /** A screen made of one list, redrawn whenever saved data changes. */
@@ -59,7 +66,15 @@ abstract class ListScreen(act: MainActivity) : Screen(act) {
         adapter.notifyDataSetChanged()
     }
 
+    override fun onReselected() {
+        if (::list.isInitialized) list.smoothScrollToPosition(0)
+    }
+
     abstract fun render()
+
+    protected fun redraw() {
+        if (visible) render()
+    }
 
     protected fun defaultSubtitle(t: Track): String = when (t.kind) {
         Kind.PODCAST -> Format.join(t.artist, Format.date(t.date), Format.duration(t.durationSec), status(t))
@@ -72,6 +87,9 @@ abstract class ListScreen(act: MainActivity) : Screen(act) {
         else -> ""
     }
 
+    private fun progressOf(t: Track): Int =
+        if (t.kind == Kind.MUSIC) -1 else Store.progress(t.id, t.durationSec).takeIf { it in 1..999 } ?: -1
+
     /** A row that plays [t] (or the whole [all] list from [index]) and offers the usual actions. */
     protected fun row(
         t: Track,
@@ -80,562 +98,659 @@ abstract class ListScreen(act: MainActivity) : Screen(act) {
         index: Int = 0,
         extra: List<SheetAction> = emptyList(),
         description: String? = null,
+        context: PlayContext? = null,
+        number: Int = 0,
     ): TrackItem = TrackItem(
         track = t,
         subtitle = subtitle,
-        progress = if (t.kind == Kind.MUSIC) -1 else Store.progress(t.id, t.durationSec).takeIf { it in 1..999 } ?: -1,
-        onClick = { if (all != null) act.playTracks(all, index) else act.playOne(t) },
+        progress = progressOf(t),
+        number = number,
+        onClick = { if (all != null) act.playTracks(all, index, context, tapped = true) else act.playOne(t) },
         onMore = { act.trackActions(t, extra, description) },
+    )
+
+    protected fun trackCard(t: Track, subtitle: String = t.artist, all: List<Track>? = null, index: Int = 0): Card = Card(
+        title = t.title,
+        subtitle = subtitle,
+        tileKey = t.artist.ifBlank { t.title },
+        progress = progressOf(t),
+        id = t.id,
+        onClick = { if (all != null) act.playTracks(all, index, null, tapped = true) else act.playOne(t) },
+        onMore = { act.trackActions(t) },
+    )
+
+    protected fun albumCard(l: YtList): Card = Card(
+        title = l.title,
+        subtitle = Format.join(if (l.count in 1..3) "סינגל" else "אלבום", l.artist),
+        tileKey = l.artist.ifBlank { l.title } + l.title,
+        onClick = { act.openAlbum(l) },
+        onMore = { act.listActions(l, null) },
+    )
+
+    protected fun artistCard(a: ArtistRef, subtitle: String = "אמן"): Card = Card(
+        title = a.name,
+        subtitle = subtitle,
+        tileKey = a.name,
+        round = true,
+        onClick = { act.openArtist(a) },
+    )
+
+    protected fun podcastCard(title: String, author: String, feedUrl: String): Card = Card(
+        title = title,
+        subtitle = author.ifBlank { "הסכת" },
+        tileKey = title,
+        icon = 0,
+        onClick = { act.openPodcast(feedUrl, title) },
+    )
+
+    protected fun contextCard(ctx: PlayContext): Card = Card(
+        title = ctx.title,
+        subtitle = contextLabel(ctx),
+        tileKey = contextKey(ctx),
+        round = ctx.type == PlayContext.ARTIST,
+        icon = if (ctx.type == PlayContext.LIKED) R.drawable.ic_favorite_fill else 0,
+        brand = ctx.type == PlayContext.LIKED,
+        id = if (ctx.type == PlayContext.SONG) ctx.track?.id ?: "" else "",
+        onClick = { act.openContext(ctx) },
+        onMore = ctx.track?.let { t -> { act.trackActions(t) } },
+    )
+
+    protected fun contextKey(ctx: PlayContext): String = when (ctx.type) {
+        PlayContext.SONG -> ctx.track?.artist?.ifBlank { null } ?: ctx.title
+        PlayContext.ARTIST, PlayContext.PODCAST -> ctx.title
+        else -> ctx.subtitle.ifBlank { ctx.title } + ctx.title
+    }
+
+    protected fun contextLabel(ctx: PlayContext): String = when (ctx.type) {
+        PlayContext.ALBUM -> Format.join("אלבום", ctx.subtitle)
+        PlayContext.YT_LIST -> Format.join("פלייליסט", ctx.subtitle)
+        PlayContext.PLAYLIST -> "הפלייליסט שלך"
+        PlayContext.LIKED -> "השירים שאהבת"
+        PlayContext.ARTIST -> "אמן"
+        PlayContext.PODCAST -> Format.join("הסכת", ctx.subtitle)
+        else -> Format.join(ctx.kind.label, ctx.subtitle)
+    }
+
+    protected fun quick(ctx: PlayContext): QuickItem = QuickItem(
+        title = ctx.title,
+        tileKey = contextKey(ctx),
+        icon = if (ctx.type == PlayContext.LIKED) R.drawable.ic_favorite_fill else 0,
+        round = false,
+        brand = ctx.type == PlayContext.LIKED,
+        onClick = { act.openContext(ctx) },
+        onMore = ctx.track?.let { t -> { act.trackActions(t) } },
     )
 }
 
-/** A list with a search box on top and optional filter chips. */
-abstract class SearchListScreen(act: MainActivity) : ListScreen(act) {
-    protected lateinit var input: EditText
-    protected var query = ""
-    protected var filter = 0
-    protected open val filters: List<String> = emptyList()
-    protected abstract val hint: String
+// ====================================================================== Home
+
+class HomeScreen(act: MainActivity) : ListScreen(act) {
+    override val title = "JUBAL"
+    override val topIcon = R.drawable.ic_history
+    override val topLabel = "הושמע לאחרונה"
+    override fun onTopAction() = act.push(CollectionScreen(act, CollectionScreen.HISTORY))
+
+    private var filter = 0
+    private var albums: List<YtList>? = Recs.cachedAlbums()
+    private var pods: List<PodcastRef>? = Recs.cachedPodcasts()
+    private var loadingAlbums = false
+    private var loadingPods = false
+    private var loadingEpisodes = false
+
+    override fun onShown() {
+        super.onShown()
+        load(false)
+    }
+
+    private fun load(force: Boolean) {
+        if (!loadingEpisodes && Store.subscriptions().isNotEmpty()) {
+            loadingEpisodes = true
+            act.lifecycleScope.launch {
+                runCatching { Recs.newEpisodes(force) }
+                loadingEpisodes = false
+                redraw()
+            }
+        }
+        if (!loadingAlbums && (albums == null || force)) {
+            loadingAlbums = true
+            act.lifecycleScope.launch {
+                albums = runCatching { Recs.recommendedAlbums(12, force) }.getOrDefault(albums ?: emptyList())
+                loadingAlbums = false
+                redraw()
+            }
+        }
+        if (!loadingPods && (pods == null || force)) {
+            loadingPods = true
+            act.lifecycleScope.launch {
+                pods = runCatching { Recs.recommendedPodcasts(12, force) }.getOrDefault(pods ?: emptyList())
+                loadingPods = false
+                redraw()
+            }
+        }
+    }
+
+    override fun render() {
+        val items = ArrayList<Item>()
+        items += TitleItem(Format.greeting())
+        items += ChipsItem(listOf("הכול", "מוזיקה", "הסכתים"), filter) { filter = it; render() }
+        val music = filter != 2
+        val podcasts = filter != 1
+        var anything = false
+
+        // Shortcuts to what you played recently (albums, playlists, artists, podcasts, songs)
+        val recent = Store.contexts().filter { (music && it.kind != Kind.PODCAST) || (podcasts && it.kind == Kind.PODCAST) }
+        recent.take(6).forEach { items += quick(it) }
+        if (recent.isNotEmpty()) anything = true
+
+        if (podcasts) {
+            val episodes = Store.inProgress(setOf(Kind.PODCAST), 10)
+            if (episodes.isNotEmpty()) {
+                anything = true
+                items += HeaderItem("המשך האזנה להסכתים")
+                items += ShelfItem("cont-pod", episodes.map { t ->
+                    trackCard(t, Format.join(t.artist, Format.remaining(Store.remainingMs(t.id, t.durationSec))))
+                })
+            }
+        }
+
+        if (music) {
+            val musicCtx = recent.filter { it.kind == Kind.MUSIC }.take(12)
+            if (musicCtx.isNotEmpty()) {
+                items += HeaderItem("המשך האזנה למוזיקה")
+                items += ShelfItem("cont-music", musicCtx.map { contextCard(it) })
+            }
+            val videos = Store.inProgress(setOf(Kind.VIDEO), 8)
+            if (videos.isNotEmpty()) {
+                anything = true
+                items += HeaderItem("המשך לשמוע שיעורים וסרטונים")
+                items += ShelfItem("cont-video", videos.map { t ->
+                    trackCard(t, Format.join(t.artist, Format.remaining(Store.remainingMs(t.id, t.durationSec))))
+                })
+            }
+
+            val artists = Recs.favoriteArtists(12)
+            if (artists.isNotEmpty()) {
+                anything = true
+                items += HeaderItem("האמנים האהובים שלך")
+                items += ShelfItem("artists", artists.map { artistCard(it.artist) })
+            }
+
+            val al = albums
+            if (artists.isNotEmpty() && (al == null || al.isNotEmpty() || loadingAlbums)) {
+                items += HeaderItem("אלבומים מומלצים")
+                if (al.isNullOrEmpty()) items += LoadingItem else items += ShelfItem("albums", al.map { albumCard(it) })
+            }
+
+            val songs = Recs.forYou(setOf(Kind.MUSIC), 12).map { it.track }
+            if (songs.isNotEmpty()) {
+                anything = true
+                items += HeaderItem("שירים בשבילך", "נגן הכול") { act.playAll(songs, null) }
+                items += ShelfItem("for-you", songs.mapIndexed { i, t -> trackCard(t, t.artist, songs, i) })
+            }
+            val vids = Recs.forYou(setOf(Kind.VIDEO), 10).map { it.track }
+            if (vids.isNotEmpty()) {
+                anything = true
+                items += HeaderItem("סרטונים ושיעורים בשבילך")
+                items += ShelfItem("for-you-v", vids.map { trackCard(it) })
+            }
+        }
+
+        if (podcasts) {
+            if (Store.subscriptions().isNotEmpty()) {
+                anything = true
+                items += HeaderItem("פרקים חדשים מההסכתים שלך", "רענון") { load(true) }
+                val eps = Recs.cachedEpisodes()
+                when {
+                    eps == null -> items += LoadingItem
+                    eps.isEmpty() -> items += MessageItem("אין פרקים חדשים כרגע.")
+                    else -> items += ShelfItem("new-eps", eps.map { trackCard(it, Format.join(it.artist, Format.date(it.date))) })
+                }
+            }
+            val p = pods
+            if (Recs.podcastGenres().isNotEmpty() && (p == null || p.isNotEmpty() || loadingPods)) {
+                items += HeaderItem("הסכתים שאולי תאהב")
+                if (p.isNullOrEmpty()) items += LoadingItem else items += ShelfItem("pods", p.map { podcastCard(it.title, it.author, it.feedUrl) })
+            }
+        }
+
+        if (!anything) {
+            items += MessageItem(
+                when (filter) {
+                    1 -> "כשתשמע שירים, יופיעו כאן האמנים שאתה אוהב, אלבומים מומלצים ושירים בשבילך."
+                    2 -> "עקוב אחרי הסכתים כדי לראות כאן פרקים חדשים והמלצות."
+                    else -> "ברוך הבא ל-JUBAL.\nאפשר לשמוע כאן מוזיקה, הסכתים, ושיעורים והרצאות מיוטיוב. הכול בשמע בלבד, בלי תמונות ובלי סרטונים.\n" +
+                        "ההמלצות לומדות רק ממה שבחרת לשמוע בעצמך: מה שמתנגן לבד כחלק מתור או פלייליסט לא נחשב."
+                }
+            )
+            items += ButtonsItem(listOf("לחיפוש" to { act.selectTab(1) }))
+        }
+        adapter.items = items
+    }
+}
+
+// ====================================================================== Search
+
+class SearchScreen(act: MainActivity) : ListScreen(act) {
+    override val title = "חיפוש"
+
+    private lateinit var input: EditText
+    private var query = ""
+    private var filter = 0
+    private var generation = 0
+    private var message = ""
+    private var suppressWatcher = false
+    private val debounce = Handler(Looper.getMainLooper())
+
+    // "All" results
+    private var songs: List<Track> = emptyList()
+    private var artists: List<ArtistRef> = emptyList()
+    private var albumsFound: List<YtList> = emptyList()
+    private var podcastsFound: List<PodcastResult> = emptyList()
+    private var videos: List<Track> = emptyList()
+    private var playlists: List<YtList> = emptyList()
+    // Single-filter results
+    private var ytSearch: YtSearch? = null
+    private val ytResults = ArrayList<YtResult>()
+    private var episodes: List<Track> = emptyList()
+    private var loading = false
+    private var loadingMore = false
+
+    private val filters = listOf("הכול", "שירים", "אמנים", "אלבומים", "פלייליסטים", "הסכתים", "פרקים", "סרטונים")
+
+    private class Category(val title: String, val query: String, val filter: Int)
+
+    private val categories = listOf(
+        Category("שירי שבת", "שירי שבת", 4),
+        Category("מוזיקה חסידית", "מוזיקה חסידית", 4),
+        Category("פיוטים", "פיוטים", 4),
+        Category("מוזיקה יהודית", "מוזיקה יהודית", 4),
+        Category("ישראלי", "מוזיקה ישראלית", 4),
+        Category("מזרחית", "מוזיקה מזרחית", 4),
+        Category("אקפלה", "אקפלה יהודית", 4),
+        Category("קלאסית", "מוזיקה קלאסית", 4),
+        Category("רגוע", "מוזיקה רגועה", 4),
+        Category("לאימון", "מוזיקה לאימון", 4),
+        Category("שיעורי תורה", "שיעורי תורה", 5),
+        Category("יהדות", "יהדות", 5),
+        Category("היסטוריה", "היסטוריה", 5),
+        Category("מדע", "מדע", 5),
+        Category("כלכלה ועסקים", "כלכלה", 5),
+        Category("חדשות", "חדשות", 5),
+        Category("הרצאות", "הרצאה", 7),
+        Category("ספרים מוקלטים", "ספר מוקלט", 7),
+    )
 
     override fun build(): View {
-        val inflater = LayoutInflater.from(act)
         val root = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-
-        val box = inflater.inflate(R.layout.view_search, root, false)
+        val box = LayoutInflater.from(act).inflate(R.layout.view_search, root, false)
         input = box.findViewById(R.id.search_input)
-        input.hint = hint
+        input.hint = "מה בא לך לשמוע?"
         input.withoutWebActions()
         input.setOnEditorActionListener { _, actionId, event ->
             val enter = event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN
             if (actionId == EditorInfo.IME_ACTION_SEARCH || enter) {
-                submit()
+                submit(record = true)
                 true
             } else {
                 false
             }
         }
         input.doAfterTextChanged { text ->
-            if (text.isNullOrEmpty() && query.isNotEmpty()) {
-                query = ""
-                onCleared()
-                render()
+            if (suppressWatcher) return@doAfterTextChanged
+            debounce.removeCallbacksAndMessages(null)
+            val t = text?.toString()?.trim().orEmpty()
+            if (t.isEmpty()) {
+                if (query.isNotEmpty()) {
+                    query = ""
+                    generation++
+                    render()
+                }
+            } else if (t.length >= 2) {
+                // Search as you type, like Spotify, after a short pause
+                debounce.postDelayed({ submit(record = false) }, 700)
             }
         }
         root.addView(box)
-
-        if (filters.isNotEmpty()) {
-            val group = ChipGroup(act).apply {
-                isSingleSelection = true
-                isSelectionRequired = true
-                setPadding(act.dp(14), 0, act.dp(14), act.dp(2))
-            }
-            filters.forEachIndexed { i, label ->
-                val chip = inflater.inflate(R.layout.chip_filter, group, false) as Chip
-                chip.id = View.generateViewId()
-                chip.text = label
-                group.addView(chip)
-                if (i == filter) chip.isChecked = true
-                chip.setOnClickListener {
-                    if (filter != i) {
-                        filter = i
-                        if (query.isNotEmpty()) search(query, i) else render()
-                    }
-                }
-            }
-            root.addView(group)
-        }
-
         list = act.recycler(adapter)
         root.addView(list, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         return root
     }
 
-    private fun submit() {
+    override fun onHidden() {
+        super.onHidden()
+        debounce.removeCallbacksAndMessages(null)
+    }
+
+    /** Fills the box and searches, e.g. for a Spotify link that had no exact match. */
+    fun searchFor(q: String, withFilter: Int = filter) {
+        view()
+        suppressWatcher = true
+        input.setText(q)
+        input.setSelection(input.text.length)
+        suppressWatcher = false
+        filter = withFilter
+        runSearch(q, record = true)
+    }
+
+    private fun submit(record: Boolean) {
         val q = input.text.toString().trim()
         if (q.isEmpty()) return
-        act.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(input.windowToken, 0)
+        if (record) act.getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(input.windowToken, 0)
+        if (q.startsWith("http://") || q.startsWith("https://")) {
+            if (record) act.openLink(q)
+            return
+        }
+        if (q == query && !record) return
+        runSearch(q, record)
+    }
+
+    private fun runSearch(q: String, record: Boolean) {
+        debounce.removeCallbacksAndMessages(null)
+        if (record) Store.addSearch(q)
         query = q
-        search(q, filter)
-    }
-
-    protected abstract fun search(q: String, filter: Int)
-    protected open fun onCleared() {}
-}
-
-// ====================================================================== Home
-
-class HomeScreen(act: MainActivity) : ListScreen(act) {
-    override val title = "Qeshev"
-    override val topIcon = R.drawable.ic_settings
-    override val topLabel = "הגדרות"
-    override fun onTopAction() = act.push(SettingsScreen(act))
-
-    private var loadingEpisodes = false
-
-    override fun onShown() {
-        super.onShown()
-        loadEpisodes(false)
-    }
-
-    private fun loadEpisodes(force: Boolean) {
-        if (loadingEpisodes || Store.subscriptions().isEmpty()) return
-        loadingEpisodes = true
-        act.lifecycleScope.launch {
-            try {
-                Recs.newEpisodes(force)
-            } catch (e: Exception) {
-                // shown as "nothing new" below
-            }
-            loadingEpisodes = false
-            if (visible) render()
-        }
-    }
-
-    override fun render() {
-        val items = ArrayList<Item>()
-        items += TitleItem(Format.greeting(), "מה נשמע היום?")
-
-        val continuing = Store.inProgress(4)
-        if (continuing.isNotEmpty()) {
-            items += HeaderItem("המשך האזנה")
-            continuing.forEach { t ->
-                items += row(t, Format.join(t.artist, Format.remaining(Store.remainingMs(t.id, t.durationSec))))
-            }
-        }
-
-        val recs = Recs.forYou(setOf(Kind.MUSIC, Kind.VIDEO), 8)
-        if (recs.isNotEmpty()) {
-            items += HeaderItem("מומלץ בשבילך")
-            recs.forEach { r -> items += row(r.track, "כי שמעת: ${r.because}") }
-        }
-
-        val subs = Store.subscriptions()
-        if (subs.isNotEmpty()) {
-            items += HeaderItem("פרקים חדשים", "רענון") { loadEpisodes(true) }
-            val eps = Recs.cachedEpisodes()
-            when {
-                eps == null -> items += LoadingItem
-                eps.isEmpty() -> items += MessageItem("אין פרקים חדשים כרגע.")
-                else -> eps.take(6).forEach { items += row(it) }
-            }
-        }
-
-        val shown = (continuing.map { it.id } + recs.map { it.track.id }).toSet()
-        val recent = Store.history().map { it.track }.filter { it.id !in shown }.take(5)
-        if (recent.isNotEmpty()) {
-            items += HeaderItem("שמעת לאחרונה", "הכול") { act.push(CollectionScreen(act, CollectionScreen.HISTORY)) }
-            recent.forEach { items += row(it) }
-        }
-
-        if (continuing.isEmpty() && recs.isEmpty() && subs.isEmpty() && recent.isEmpty()) {
-            items += MessageItem(
-                "ברוך הבא ל-Qeshev.\n" +
-                    "אפשר לשמוע כאן פודקאסטים, שיעורים והרצאות מיוטיוב, ומוזיקה. הכול בשמע בלבד, בלי תמונות ובלי סרטונים.\n" +
-                    "אחרי כמה האזנות יופיעו כאן המלצות לפי מה ששמעת."
-            )
-            items += ButtonsItem(
-                listOf(
-                    "פודקאסטים" to { act.selectTab(1) },
-                    "סרטונים" to { act.selectTab(2) },
-                    "מוזיקה" to { act.selectTab(3) },
-                )
-            )
-        }
-        adapter.items = items
-    }
-}
-
-// ====================================================================== Podcasts
-
-class PodcastsScreen(act: MainActivity) : SearchListScreen(act) {
-    override val title = "פודקאסטים"
-    override val hint = "חיפוש פודקאסט"
-    private var results: List<PodcastResult>? = null
-    private var message = ""
-
-    override fun onCleared() {
-        results = null
+        val gen = ++generation
         message = ""
-    }
-
-    override fun search(q: String, filter: Int) {
-        if (q.startsWith("http://") || q.startsWith("https://")) {
-            act.openPodcast(q, "פודקאסט")
-            return
-        }
-        results = null
-        message = "מחפש…"
-        render()
-        act.lifecycleScope.launch {
-            try {
-                val found = withContext(Dispatchers.IO) { Podcasts.search(q) }
-                if (q != query) return@launch
-                results = found
-                message = if (found.isEmpty()) "לא נמצאו פודקאסטים. נסה שם אחר, או חפש בלשונית \"סרטונים\"." else ""
-            } catch (e: Exception) {
-                message = "החיפוש נכשל. בדוק את החיבור לאינטרנט ונסה שוב."
-            }
-            if (visible) render()
-        }
-    }
-
-    override fun render() {
-        val items = ArrayList<Item>()
-        if (query.isNotEmpty()) {
-            if (message.isNotEmpty()) items += MessageItem(message)
-            results?.forEach { p ->
-                items += EntityItem(
-                    p.name,
-                    Format.join(p.author, if (p.episodeCount > 0) "${p.episodeCount} פרקים" else ""),
-                    p.name,
-                    onClick = { act.openPodcast(p.feedUrl, p.name) },
-                )
-            }
-        } else {
-            val subs = Store.subscriptions()
-            if (subs.isEmpty()) {
-                items += MessageItem("חפש פודקאסט לפי שם, היכנס אליו ולחץ \"עקוב\". הוא יופיע כאן, והפרקים החדשים שלו יופיעו בבית.")
-            } else {
-                items += HeaderItem("הפודקאסטים שלך")
-                subs.forEach { s ->
-                    items += EntityItem(s.title, s.author, s.title, onClick = { act.openPodcast(s.feedUrl, s.title) })
-                }
-            }
-            val inProgress = Store.inProgress(10).filter { it.kind == Kind.PODCAST }.take(4)
-            if (inProgress.isNotEmpty()) {
-                items += HeaderItem("המשך האזנה")
-                inProgress.forEach { t ->
-                    items += row(t, Format.join(t.artist, Format.remaining(Store.remainingMs(t.id, t.durationSec))))
-                }
-            }
-        }
-        adapter.items = items
-    }
-}
-
-class PodcastScreen(act: MainActivity, private val feedUrl: String, private var name: String) : ListScreen(act) {
-    override val title: String get() = name
-    private var feed: Feed? = null
-    private var error = false
-    private var loading = false
-
-    override fun onShown() {
-        super.onShown()
-        if (feed == null) load()
-    }
-
-    private fun load() {
-        if (loading) return
         loading = true
-        error = false
+        ytSearch = null
+        ytResults.clear()
         render()
         act.lifecycleScope.launch {
             try {
-                val f = withContext(Dispatchers.IO) { Podcasts.loadFeed(feedUrl) }
-                feed = f
-                name = f.title
-                act.refreshTop(this@PodcastScreen)
+                when (filter) {
+                    0 -> searchAll(q, gen)
+                    5 -> {
+                        val found = withContext(Dispatchers.IO) { Podcasts.search(q) }
+                        if (gen != generation) return@launch
+                        podcastsFound = found
+                        if (found.isEmpty()) message = "לא נמצאו הסכתים."
+                    }
+                    6 -> {
+                        val found = withContext(Dispatchers.IO) { Podcasts.searchEpisodes(q) }
+                        if (gen != generation) return@launch
+                        episodes = found
+                        if (found.isEmpty()) message = "לא נמצאו פרקים."
+                    }
+                    else -> {
+                        val (code, kind) = when (filter) {
+                            1 -> YtSearch.SONGS to Kind.MUSIC
+                            2 -> YtSearch.ARTISTS to Kind.MUSIC
+                            3 -> YtSearch.ALBUMS to Kind.MUSIC
+                            4 -> YtSearch.MUSIC_PLAYLISTS to Kind.MUSIC
+                            else -> YtSearch.VIDEOS to Kind.VIDEO
+                        }
+                        val s = YtSearch(q, code, kind)
+                        val found = withContext(Dispatchers.IO) { s.first() }
+                        if (gen != generation) return@launch
+                        ytSearch = s
+                        ytResults.clear()
+                        ytResults += found
+                        if (found.isEmpty()) message = "לא נמצאו תוצאות."
+                    }
+                }
             } catch (e: Exception) {
-                error = true
+                if (gen == generation) message = "החיפוש נכשל. בדוק את החיבור לאינטרנט ונסה שוב."
             }
-            loading = false
-            if (visible) render()
-        }
-    }
-
-    override fun render() {
-        val items = ArrayList<Item>()
-        val f = feed
-        items += TitleItem(f?.title ?: name, f?.author ?: "")
-        if (f == null) {
-            items += if (error) MessageItem("לא הצלחתי לטעון את הפודקאסט. בדוק את החיבור ונסה שוב.") else LoadingItem
-            if (error) items += ButtonsItem(listOf("נסה שוב" to { load() }))
-            adapter.items = items
-            return
-        }
-        val following = Store.isSubscribed(feedUrl)
-        val tracks = f.episodes.map { it.toTrack(f.title, feedUrl) }
-        items += ButtonsItem(
-            listOf(
-                (if (following) "מפסיק לעקוב" else "עקוב") to {
-                    if (following) Store.unsubscribe(feedUrl) else Store.subscribe(PodcastRef(f.title, f.author, feedUrl))
-                    act.toast(if (following) "הוסר מהפודקאסטים שלך" else "נוסף לפודקאסטים שלך")
-                },
-                "על הפודקאסט" to { act.showText(f.title, Podcasts.plainText(f.rawDescription)) },
-                "הוסף הכול לתיקייה" to { act.chooseFolder(tracks) },
-            )
-        )
-        items += HeaderItem(if (tracks.isEmpty()) "אין פרקים" else "${tracks.size} פרקים")
-        f.episodes.forEachIndexed { i, e ->
-            items += row(tracks[i], description = Podcasts.plainText(e.rawDescription))
-        }
-        adapter.items = items
-    }
-}
-
-// ====================================================================== YouTube: videos and music
-
-abstract class YtSearchScreen(act: MainActivity, private val kind: Kind) : SearchListScreen(act) {
-    protected abstract val filterCodes: List<String>
-    private var search: YtSearch? = null
-    private val results = ArrayList<YtResult>()
-    private var message = ""
-    private var loadingMore = false
-
-    override fun onCleared() {
-        search = null
-        results.clear()
-        message = ""
-    }
-
-    override fun search(q: String, filter: Int) {
-        if (q.startsWith("http://") || q.startsWith("https://")) {
-            openLink(q)
-            return
-        }
-        val s = YtSearch(q, filterCodes[filter], kind)
-        search = s
-        results.clear()
-        message = "מחפש…"
-        render()
-        act.lifecycleScope.launch {
-            try {
-                val found = withContext(Dispatchers.IO) { s.first() }
-                if (search !== s) return@launch
-                results += found
-                message = if (found.isEmpty()) "לא נמצאו תוצאות." else ""
-            } catch (e: Exception) {
-                if (search === s) message = "החיפוש נכשל. נסה שוב בעוד רגע."
+            if (gen == generation) {
+                loading = false
+                redraw()
             }
-            if (visible) render()
         }
     }
 
-    private fun openLink(url: String) {
-        val uri = android.net.Uri.parse(url)
-        if (uri.getQueryParameter("list") != null && uri.getQueryParameter("v") == null) {
-            act.push(YtListScreen(act, url, "רשימה", kind))
-            return
+    private suspend fun searchAll(q: String, gen: Int) = coroutineScope {
+        fun yt(code: String, kind: Kind) = async(Dispatchers.IO) {
+            runCatching { YtSearch(q, code, kind).first() }.getOrDefault(emptyList())
         }
-        val id = YouTube.videoId(url)
-        if (id.isNullOrEmpty()) {
-            act.toast("זה לא נראה כמו קישור של יוטיוב")
-            return
+        val s = yt(YtSearch.SONGS, Kind.MUSIC)
+        val a = yt(YtSearch.ARTISTS, Kind.MUSIC)
+        val al = yt(YtSearch.ALBUMS, Kind.MUSIC)
+        val v = yt(YtSearch.VIDEOS, Kind.VIDEO)
+        val pl = yt(YtSearch.MUSIC_PLAYLISTS, Kind.MUSIC)
+        val p = async(Dispatchers.IO) { runCatching { Podcasts.search(q) }.getOrDefault(emptyList()) }
+        val songsR = s.await()
+        val artistsR = a.await()
+        val albumsR = al.await()
+        val videosR = v.await()
+        val playlistsR = pl.await()
+        val podsR = p.await()
+        if (gen != generation) return@coroutineScope
+        songs = songsR.mapNotNull { (it as? YtTrackResult)?.track }
+        artists = artistsR.mapNotNull { (it as? YtArtistResult)?.artist }
+        albumsFound = albumsR.mapNotNull { (it as? YtListResult)?.list }
+        videos = videosR.mapNotNull { (it as? YtTrackResult)?.track }
+        playlists = playlistsR.mapNotNull { (it as? YtListResult)?.list }
+        podcastsFound = podsR
+        if (songs.isEmpty() && artists.isEmpty() && albumsFound.isEmpty() && videos.isEmpty() && podsR.isEmpty()) {
+            message = "לא נמצאו תוצאות."
         }
-        act.playOne(Track.youtube(id, kind, "מיוטיוב", "", 0))
+        Unit
     }
 
     private fun more() {
-        val s = search ?: return
+        val s = ytSearch ?: return
         if (loadingMore) return
         loadingMore = true
+        val gen = generation
+        redraw()
         act.lifecycleScope.launch {
             try {
                 val found = withContext(Dispatchers.IO) { s.more() }
-                if (search === s) results += found
+                if (gen == generation) ytResults += found
             } catch (e: Exception) {
                 act.toast("לא הצלחתי לטעון עוד תוצאות")
             }
             loadingMore = false
-            if (visible) render()
+            redraw()
         }
+    }
+
+    private fun setFilter(i: Int) {
+        filter = i
+        if (query.isNotEmpty()) runSearch(query, record = false) else render()
     }
 
     override fun render() {
         val items = ArrayList<Item>()
-        if (query.isNotEmpty()) {
-            if (message.isNotEmpty()) items += MessageItem(message)
-            for (r in results) {
-                when (r) {
-                    is YtTrackResult -> items += row(r.track)
-                    is YtListResult -> {
-                        val l = r.list
-                        items += EntityItem(
-                            l.title,
-                            Format.join(l.artist, if (l.count > 0) "${l.count} פריטים" else ""),
-                            l.artist.ifBlank { l.title },
-                            onClick = { act.push(YtListScreen(act, l.url, l.title, l.kind)) },
-                        )
-                    }
+        if (query.isEmpty()) {
+            val recent = Store.recentSearches()
+            if (recent.isNotEmpty()) {
+                items += HeaderItem("חיפושים אחרונים", "ניקוי") { Store.clearSearches() }
+                recent.take(6).forEach { q ->
+                    items += EntityItem(q, "", q, R.drawable.ic_history, onClick = { searchFor(q) })
                 }
             }
-            if (search?.hasMore == true && results.isNotEmpty()) {
-                items += ButtonsItem(listOf((if (loadingMore) "טוען…" else "עוד תוצאות") to { more() }))
-            }
-        } else {
-            idle(items)
+            items += HeaderItem("עיון בקטגוריות")
+            categories.forEach { c -> items += CategoryItem(c.title) { searchFor(c.query, c.filter) } }
+            adapter.items = items
+            return
         }
-        adapter.items = items
-    }
 
-    protected open fun idle(items: ArrayList<Item>) {
-        val recs = Recs.forYou(setOf(kind), 12)
-        if (recs.isNotEmpty()) {
-            items += HeaderItem("מומלץ בשבילך")
-            items += ButtonsItem(listOf("נגן את כל ההמלצות" to { act.playTracks(recs.map { it.track }, 0) }))
-            recs.forEach { r -> items += row(r.track, "כי שמעת: ${r.because}") }
+        items += ChipsItem(filters, filter) { setFilter(it) }
+        if (loading) {
+            items += LoadingItem
+            adapter.items = items
+            return
         }
-        val recent = Store.history().map { it.track }.filter { it.kind == kind }.take(8)
-        if (recent.isNotEmpty()) {
-            items += HeaderItem("שמעת לאחרונה")
-            recent.forEach { items += row(it) }
-        }
-        if (recs.isEmpty() && recent.isEmpty()) items += MessageItem(emptyText)
-    }
+        if (message.isNotEmpty()) items += MessageItem(message)
 
-    protected abstract val emptyText: String
-}
-
-class VideosScreen(act: MainActivity) : YtSearchScreen(act, Kind.VIDEO) {
-    override val title = "סרטונים"
-    override val hint = "חיפוש ביוטיוב, שמע בלבד"
-    override val filters = listOf("סרטונים", "פלייליסטים")
-    override val filterCodes = listOf(YtSearch.VIDEOS, YtSearch.PLAYLISTS)
-    override val emptyText =
-        "כאן אפשר לשמוע שיעורים, הרצאות וכל סרטון מיוטיוב, בלי התמונה. אפשר גם להדביק קישור של יוטיוב בתיבת החיפוש."
-}
-
-class MusicScreen(act: MainActivity) : YtSearchScreen(act, Kind.MUSIC) {
-    override val title = "מוזיקה"
-    override val hint = "שירים, אמנים ואלבומים"
-    override val filters = listOf("שירים", "אלבומים", "פלייליסטים")
-    override val filterCodes = listOf(YtSearch.SONGS, YtSearch.ALBUMS, YtSearch.MUSIC_PLAYLISTS)
-    override val emptyText =
-        "חפש שיר או אמן. כשתשמע שיר, Qeshev ימשיך לבד עם שירים דומים (אפשר לכבות את זה בנגן)."
-
-    override fun idle(items: ArrayList<Item>) {
-        val favorites = Store.favorites().filter { it.kind == Kind.MUSIC }
-        if (favorites.isNotEmpty()) {
-            items += ButtonsItem(
-                listOf(
-                    "ערבב את האהובים" to { act.shuffle(favorites) },
-                    "כל האהובים" to { act.push(CollectionScreen(act, CollectionScreen.FAVORITES)) },
-                )
-            )
-        }
-        super.idle(items)
-    }
-}
-
-class YtListScreen(act: MainActivity, private val url: String, private var name: String, private val kind: Kind) : ListScreen(act) {
-    override val title: String get() = name
-    private var tracks: List<Track>? = null
-    private var error = false
-
-    override fun onShown() {
-        super.onShown()
-        if (tracks == null) load()
-    }
-
-    private fun load() {
-        error = false
-        render()
-        act.lifecycleScope.launch {
-            try {
-                val (listName, loaded) = withContext(Dispatchers.IO) { YouTube.loadList(url, kind) }
-                if (listName.isNotBlank()) name = listName
-                tracks = loaded
-                act.refreshTop(this@YtListScreen)
-            } catch (e: Exception) {
-                error = true
-            }
-            if (visible) render()
-        }
-    }
-
-    override fun render() {
-        val items = ArrayList<Item>()
-        val t = tracks
-        items += TitleItem(name, if (t != null) "${t.size} פריטים" else "")
-        when {
-            t == null && error -> {
-                items += MessageItem("לא הצלחתי לפתוח את הרשימה.")
-                items += ButtonsItem(listOf("נסה שוב" to { load() }))
-            }
-            t == null -> items += LoadingItem
-            t.isEmpty() -> items += MessageItem("הרשימה ריקה.")
+        when (filter) {
+            0 -> renderAll(items)
+            5 -> podcastsFound.forEach { p -> items += podcastRow(p) }
+            6 -> episodes.forEach { t -> items += row(t) }
             else -> {
-                items += ButtonsItem(
-                    listOf(
-                        "נגן הכול" to { act.playTracks(t, 0) },
-                        "ערבב" to { act.shuffle(t) },
-                        "שמור כתיקייה" to {
-                            val folder = Store.createFolder(name, t)
-                            act.toast("נשמר כתיקייה \"${folder.name}\"")
-                        },
-                    )
-                )
-                t.forEachIndexed { i, track -> items += row(track, all = t, index = i) }
+                for (r in ytResults) {
+                    when (r) {
+                        is YtTrackResult -> items += row(r.track)
+                        is YtListResult -> items += listRow(r.list)
+                        is YtArtistResult -> items += artistRow(r.artist)
+                    }
+                }
+                if (ytSearch?.hasMore == true && ytResults.isNotEmpty()) {
+                    items += ButtonsItem(listOf((if (loadingMore) "טוען…" else "עוד תוצאות") to { more() }))
+                }
             }
         }
         adapter.items = items
     }
+
+    private fun renderAll(items: ArrayList<Item>) {
+        val qn = Podcasts.norm(query)
+        val topArtist = artists.firstOrNull { Podcasts.norm(it.name) == qn || Podcasts.norm(it.name).startsWith(qn) }
+        if (topArtist != null) {
+            items += HeaderItem("התוצאה המובילה")
+            items += artistRow(topArtist)
+        } else if (songs.isNotEmpty()) {
+            items += HeaderItem("התוצאה המובילה")
+            items += row(songs.first())
+        }
+        val restSongs = if (topArtist == null) songs.drop(1) else songs
+        if (restSongs.isNotEmpty()) {
+            items += HeaderItem("שירים", "הכול") { setFilter(1) }
+            restSongs.take(4).forEach { items += row(it) }
+        }
+        val otherArtists = artists.filter { it != topArtist }
+        if (otherArtists.isNotEmpty()) {
+            items += HeaderItem("אמנים", "הכול") { setFilter(2) }
+            items += ShelfItem("s-artists", otherArtists.take(10).map { artistCard(it, subscribers(it)) })
+        }
+        if (albumsFound.isNotEmpty()) {
+            items += HeaderItem("אלבומים", "הכול") { setFilter(3) }
+            items += ShelfItem("s-albums", albumsFound.take(10).map { albumCard(it) })
+        }
+        if (podcastsFound.isNotEmpty()) {
+            items += HeaderItem("הסכתים", "הכול") { setFilter(5) }
+            items += ShelfItem("s-pods", podcastsFound.take(10).map { podcastCard(it.name, it.author, it.feedUrl) })
+        }
+        if (playlists.isNotEmpty()) {
+            items += HeaderItem("פלייליסטים", "הכול") { setFilter(4) }
+            items += ShelfItem("s-lists", playlists.take(10).map { l ->
+                Card(l.title, l.artist, l.title, onClick = { act.openAlbum(l) }, onMore = { act.listActions(l, null) })
+            })
+        }
+        if (videos.isNotEmpty()) {
+            items += HeaderItem("סרטונים ושיעורים", "הכול") { setFilter(7) }
+            videos.take(3).forEach { items += row(it) }
+        }
+    }
+
+    private fun subscribers(a: ArtistRef): String =
+        if (a.subscribers > 0) "${Format.big(a.subscribers)} מנויים" else "אמן"
+
+    private fun artistRow(a: ArtistRef) =
+        EntityItem(a.name, Format.join("אמן", if (a.subscribers > 0) "${Format.big(a.subscribers)} מנויים" else ""), a.name, round = true,
+            onClick = { act.openArtist(a) })
+
+    private fun listRow(l: YtList) = EntityItem(
+        l.title,
+        Format.join(if (filter == 3) (if (l.count in 1..3) "סינגל" else "אלבום") else "פלייליסט", l.artist, if (l.count > 0) "${l.count} פריטים" else ""),
+        l.artist.ifBlank { l.title } + l.title,
+        onClick = { act.openAlbum(l) },
+        onMore = { act.listActions(l, null) },
+    )
+
+    private fun podcastRow(p: PodcastResult) = EntityItem(
+        p.name,
+        Format.join(p.author, if (p.episodeCount > 0) "${p.episodeCount} פרקים" else ""),
+        p.name,
+        onClick = { act.openPodcast(p.feedUrl, p.name) },
+    )
 }
 
 // ====================================================================== Library
 
 class LibraryScreen(act: MainActivity) : ListScreen(act) {
-    override val title = "הספרייה"
-    override val topIcon = R.drawable.ic_settings
-    override val topLabel = "הגדרות"
-    override fun onTopAction() = act.push(SettingsScreen(act))
+    override val title = "הספרייה שלך"
+    override val topIcon = R.drawable.ic_add
+    override val topLabel = "פלייליסט חדש"
+    override fun onTopAction() = newPlaylist()
+
+    private var filter = 0
 
     override fun render() {
         val items = ArrayList<Item>()
-        val favorites = Store.favorites().size
-        val downloads = Store.downloads().size
-        items += EntityItem("אהובים", Format.count(favorites, "פריט", "פריטים"), "אהובים", R.drawable.ic_favorite_fill,
-            onClick = { act.push(CollectionScreen(act, CollectionScreen.FAVORITES)) })
-        items += EntityItem("שמור בטלפון", Format.count(downloads, "קובץ", "קבצים"), "שמור", R.drawable.ic_download_done,
-            onClick = { act.push(CollectionScreen(act, CollectionScreen.DOWNLOADS)) })
-        items += EntityItem("היסטוריה", "כל מה ששמעת לאחרונה", "היסטוריה", R.drawable.ic_history,
-            onClick = { act.push(CollectionScreen(act, CollectionScreen.HISTORY)) })
+        items += ChipsItem(listOf("הכול", "פלייליסטים", "אלבומים", "אמנים", "הסכתים", "הורדות"), filter) { filter = it; render() }
+        val all = filter == 0
+        var shown = 0
 
-        items += HeaderItem("תיקיות", "+ חדשה") { newFolder() }
-        val folders = Store.folders()
-        if (folders.isEmpty()) {
-            items += MessageItem("צור תיקייה כדי לאסוף שיעורים, שירים ופרקים במקום אחד. מכל פריט אפשר לבחור \"הוסף לתיקייה\".")
-        } else {
-            folders.forEach { f ->
+        if (all || filter == 1) {
+            val liked = Store.favorites()
+            items += EntityItem("אהבתי", Format.join("פלייליסט", Format.count(liked.size, "פריט", "פריטים")), "אהבתי",
+                R.drawable.ic_favorite_fill, brand = true, onClick = { act.push(CollectionScreen(act, CollectionScreen.LIKED)) })
+            shown++
+        }
+        if (all) {
+            items += EntityItem("הושמע לאחרונה", "כל מה ששמעת", "היסטוריה", R.drawable.ic_history,
+                onClick = { act.push(CollectionScreen(act, CollectionScreen.HISTORY)) })
+        }
+        if (all || filter == 5) {
+            items += EntityItem("שמור בטלפון", Format.count(Store.downloads().size, "קובץ", "קבצים"), "הורדות", R.drawable.ic_download_done,
+                onClick = { act.push(CollectionScreen(act, CollectionScreen.DOWNLOADS)) })
+            shown++
+        }
+        if (all || filter == 1) {
+            Store.folders().forEach { f ->
                 items += EntityItem(
-                    f.name, Format.count(f.tracks.size, "פריט", "פריטים"), f.name, R.drawable.ic_folder,
-                    onClick = { act.push(CollectionScreen(act, CollectionScreen.FOLDER, f.id)) },
-                    onMore = { folderActions(act, f) },
+                    f.name, Format.join("פלייליסט", Format.count(f.tracks.size, "פריט", "פריטים")), f.name,
+                    onClick = { act.push(CollectionScreen(act, CollectionScreen.PLAYLIST, f.id)) },
+                    onMore = { playlistActions(act, f) },
                 )
+                shown++
+            }
+            if (filter == 1) items += ButtonsItem(listOf("+ פלייליסט חדש" to { newPlaylist() }))
+        }
+        if (all || filter == 2) {
+            Store.savedAlbums().forEach { l ->
+                items += EntityItem(l.title, Format.join("אלבום", l.artist), l.artist.ifBlank { l.title } + l.title,
+                    onClick = { act.openAlbum(l) }, onMore = { act.listActions(l, null) })
+                shown++
             }
         }
-
-        val subs = Store.subscriptions()
-        if (subs.isNotEmpty()) {
-            items += HeaderItem("פודקאסטים שאני עוקב אחריהם")
-            subs.forEach { s ->
-                items += EntityItem(s.title, s.author, s.title, onClick = { act.openPodcast(s.feedUrl, s.title) })
+        if (all || filter == 3) {
+            Store.followedArtists().forEach { a ->
+                items += EntityItem(a.name, "אמן", a.name, round = true, onClick = { act.openArtist(a) })
+                shown++
             }
+        }
+        if (all || filter == 4) {
+            Store.subscriptions().forEach { s ->
+                items += EntityItem(s.title, Format.join("הסכת", s.author), s.title, onClick = { act.openPodcast(s.feedUrl, s.title) })
+                shown++
+            }
+        }
+        if (filter in 2..4 && shown == 0) {
+            items += MessageItem(
+                when (filter) {
+                    2 -> "אלבומים ששמרת יופיעו כאן. בעמוד של אלבום לחץ \"שמור בספרייה\"."
+                    3 -> "אמנים שאתה עוקב אחריהם יופיעו כאן. בעמוד של אמן לחץ \"עקוב\"."
+                    else -> "הסכתים שאתה עוקב אחריהם יופיעו כאן."
+                }
+            )
         }
         adapter.items = items
     }
 
-    private fun newFolder() {
-        act.askText("תיקייה חדשה", "", "יצירה") { name ->
+    private fun newPlaylist() {
+        act.askText("פלייליסט חדש", "", "יצירה") { name ->
             val f = Store.createFolder(name)
-            act.push(CollectionScreen(act, CollectionScreen.FOLDER, f.id))
+            act.push(CollectionScreen(act, CollectionScreen.PLAYLIST, f.id))
         }
     }
 
     companion object {
-        fun folderActions(act: MainActivity, f: Folder, onDeleted: () -> Unit = {}) {
+        fun playlistActions(act: MainActivity, f: Folder, onDeleted: () -> Unit = {}) {
+            val ctx = PlayContext(PlayContext.PLAYLIST, f.name, "פלייליסט", f.id, Kind.MUSIC)
             act.sheet(
                 f.name, Format.count(f.tracks.size, "פריט", "פריטים"),
                 listOf(
-                    SheetAction(R.drawable.ic_play_arrow, "נגן הכול") { act.playTracks(f.tracks, 0) },
-                    SheetAction(R.drawable.ic_shuffle, "ערבב") { act.shuffle(f.tracks) },
+                    SheetAction(R.drawable.ic_play_arrow, "נגן הכול") { act.playAll(f.tracks, ctx) },
+                    SheetAction(R.drawable.ic_shuffle, "ערבב") { act.shuffle(f.tracks, ctx) },
                     SheetAction(R.drawable.ic_queue_music, "הוסף הכול לתור") { act.addAllToQueue(f.tracks) },
-                    SheetAction(R.drawable.ic_download, "שמור את כל התיקייה בטלפון") { act.downloadAll(f.tracks) },
+                    SheetAction(R.drawable.ic_download, "שמור את כל הפלייליסט בטלפון") { act.downloadAll(f.tracks) },
                     SheetAction(R.drawable.ic_edit, "שנה שם") {
-                        act.askText("שם התיקייה", f.name, "שמירה") { Store.renameFolder(f.id, it) }
+                        act.askText("שם הפלייליסט", f.name, "שמירה") { Store.renameFolder(f.id, it) }
                     },
-                    SheetAction(R.drawable.ic_delete, "מחק את התיקייה") {
-                        act.confirm("למחוק את \"${f.name}\"?", "הפריטים עצמם לא יימחקו, רק התיקייה.", "מחיקה") {
+                    SheetAction(R.drawable.ic_delete, "מחק את הפלייליסט") {
+                        act.confirm("למחוק את \"${f.name}\"?", "השירים והפרקים עצמם לא יימחקו, רק הפלייליסט.", "מחיקה") {
                             Store.deleteFolder(f.id)
                             onDeleted()
                         }
@@ -643,85 +758,6 @@ class LibraryScreen(act: MainActivity) : ListScreen(act) {
                 ),
             )
         }
-    }
-}
-
-class CollectionScreen(act: MainActivity, private val type: Int, private val folderId: String = "") : ListScreen(act) {
-    override val title: String
-        get() = when (type) {
-            FAVORITES -> "אהובים"
-            DOWNLOADS -> "שמור בטלפון"
-            HISTORY -> "היסטוריה"
-            else -> Store.folder(folderId)?.name ?: "תיקייה"
-        }
-
-    override val topIcon: Int
-        get() = when (type) {
-            FOLDER -> R.drawable.ic_more_vert
-            HISTORY -> R.drawable.ic_delete
-            else -> 0
-        }
-
-    override val topLabel: String get() = if (type == HISTORY) "נקה היסטוריה" else "אפשרויות"
-
-    override fun onTopAction() {
-        when (type) {
-            FOLDER -> Store.folder(folderId)?.let { f -> LibraryScreen.folderActions(act, f) { act.goBack() } }
-            HISTORY -> act.confirm("לנקות את ההיסטוריה?", "גם ההמלצות מבוססות על ההיסטוריה.", "ניקוי") { Store.clearHistory() }
-        }
-    }
-
-    private fun tracks(): List<Track> = when (type) {
-        FAVORITES -> Store.favorites()
-        DOWNLOADS -> Store.downloads().map { it.track }
-        HISTORY -> Store.history().map { it.track }
-        else -> Store.folder(folderId)?.tracks ?: emptyList()
-    }
-
-    override fun render() {
-        act.refreshTop(this)
-        if (type == FOLDER && Store.folder(folderId) == null) {
-            adapter.items = listOf(MessageItem("התיקייה נמחקה."))
-            return
-        }
-        val t = tracks()
-        val items = ArrayList<Item>()
-        if (t.isEmpty()) {
-            items += MessageItem(
-                when (type) {
-                    FAVORITES -> "עוד אין אהובים. בכל פריט, או בנגן, לחץ על הלב."
-                    DOWNLOADS -> "עוד לא שמרת כלום. בכל פריט אפשר לבחור \"שמור בטלפון\", ואז הוא יעבוד גם בלי אינטרנט."
-                    HISTORY -> "עוד לא שמעת כלום."
-                    else -> "התיקייה ריקה. מכל פריט אפשר לבחור \"הוסף לתיקייה\"."
-                }
-            )
-            adapter.items = items
-            return
-        }
-        val buttons = ArrayList<Pair<String, () -> Unit>>()
-        buttons += "נגן הכול" to { act.playTracks(t, 0) }
-        buttons += "ערבב" to { act.shuffle(t) }
-        if (type == FOLDER || type == FAVORITES) buttons += "שמור הכול בטלפון" to { act.downloadAll(t) }
-        items += ButtonsItem(buttons)
-        if (type == DOWNLOADS) {
-            items += MessageItem("הקבצים נמצאים בזיכרון הטלפון, בתיקיות Music/Qeshev ו-Podcasts/Qeshev.")
-        }
-        t.forEachIndexed { i, track ->
-            val extra = when (type) {
-                FOLDER -> listOf(SheetAction(R.drawable.ic_close, "הסר מהתיקייה") { Store.removeFromFolder(folderId, track.id) })
-                HISTORY -> listOf(SheetAction(R.drawable.ic_close, "הסר מההיסטוריה") { Store.removeHistory(track.id) })
-                else -> emptyList()
-            }
-            items += row(track, all = t, index = i, extra = extra)
-        }
-        adapter.items = items
-    }
-
-    companion object {
-        const val FAVORITES = 0
-        const val DOWNLOADS = 1
-        const val HISTORY = 2
-        const val FOLDER = 3
     }
 }
 
@@ -750,13 +786,59 @@ class SettingsScreen(act: MainActivity) : ListScreen(act) {
             onClick = { Store.setAutoplay(!Store.autoplay()) },
         )
 
-        items += HeaderItem("על Qeshev")
-        val version = runCatching { act.packageManager.getPackageInfo(act.packageName, 0).versionName }.getOrNull() ?: ""
-        items += MessageItem(
-            "Qeshev $version\n" +
-                "בלי תמונות, בלי וידאו ובלי דפדפן. פודקאסטים מהמאגר הפתוח של אפל, ושמע מיוטיוב דרך NewPipeExtractor."
+        items += HeaderItem("קישורים מיוטיוב וספוטיפיי")
+        items += EntityItem(
+            "פתיחת קישורים ב-JUBAL",
+            "איך לשמוע קישורים מיוטיוב וספוטיפיי כאן, בשמע בלבד",
+            "קישור", R.drawable.ic_link,
+            onClick = { linksHelp() },
         )
+
+        items += HeaderItem("המלצות ופרטיות")
+        items += EntityItem("איך עובדות ההמלצות", "כמו ביוטיוב ובספוטיפיי, רק ממה שבחרת", "המלצות", R.drawable.ic_info,
+            onClick = { act.showText("איך עובדות ההמלצות", RECS_HELP) })
+        items += EntityItem("איפוס ההמלצות", "מתחיל ללמוד מחדש. אהבתי, פלייליסטים ומעקבים נשארים", "איפוס", R.drawable.ic_delete,
+            onClick = {
+                act.confirm("לאפס את ההמלצות?", "כל מה שהמערכת למדה על הטעם שלך יימחק.", "איפוס") {
+                    Store.resetRecommendations()
+                    Store.clearCache("albums")
+                    Store.clearCache("pods")
+                    act.toast("ההמלצות אופסו")
+                }
+            })
+        items += EntityItem("ניקוי היסטוריית ההאזנה", "", "ניקוי", R.drawable.ic_history,
+            onClick = { act.confirm("לנקות את ההיסטוריה?", "גם \"המשך האזנה\" יתרוקן.", "ניקוי") { Store.clearHistory() } })
+        items += EntityItem("ניקוי חיפושים אחרונים", "", "חיפוש", R.drawable.ic_search,
+            onClick = { Store.clearSearches(); act.toast("נוקה") })
+
+        val version = runCatching { act.packageManager.getPackageInfo(act.packageName, 0).versionName }.getOrNull() ?: ""
+        items += LogoItem("גרסה $version · בלי תמונות, בלי וידאו ובלי דפדפן")
         adapter.items = items
+    }
+
+    private fun linksHelp() {
+        act.sheet(
+            "פתיחת קישורים ב-JUBAL",
+            "ביוטיוב או בספוטיפיי: \"שיתוף\" ← JUBAL",
+            listOf(
+                SheetAction(R.drawable.ic_info, "איך זה עובד") { act.showText("פתיחת קישורים", LINKS_HELP) },
+                SheetAction(R.drawable.ic_settings, "פתח את הגדרות הקישורים של JUBAL") { openLinkSettings() },
+            ),
+        )
+    }
+
+    private fun openLinkSettings() {
+        val pkg = Uri.parse("package:${act.packageName}")
+        val intent = if (Build.VERSION.SDK_INT >= 31) {
+            Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, pkg)
+        } else {
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg)
+        }
+        try {
+            act.startActivity(intent)
+        } catch (e: Exception) {
+            act.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg))
+        }
     }
 
     private fun chooseTheme() {
@@ -773,5 +855,27 @@ class SettingsScreen(act: MainActivity) : ListScreen(act) {
             Settings.setScale(act, Settings.SCALES[i].first)
             act.recreate()
         }
+    }
+
+    companion object {
+        const val RECS_HELP =
+            "ההמלצות נבנות רק בטלפון שלך, ברוח יוטיוב וספוטיפיי:\n\n" +
+                "• מה שנחשב: שיר, סרטון או פרק שבחרת לשמוע בעצמך, האזנה של יותר מ-30 שניות, האזנה עד הסוף, \"אהבתי\", הוספה לפלייליסט, שמירה בטלפון ומעקב אחרי אמן או הסכת.\n" +
+                "• מה שלא נחשב: מה שמתנגן לבד אחרי משהו אחר, כחלק מתור, אלבום, פלייליסט או השמעה אוטומטית.\n" +
+                "• דילוג בתוך 30 שניות נחשב כ\"פחות מתאים\", גם לשיר וגם לאמן.\n" +
+                "• ההצעות עצמן מגיעות מ\"הבא בתור\" של יוטיוב לשירים שבחרת (מי ששומע את זה שומע גם את זה). שיר שמומלץ מכמה שירים שאהבת עולה למעלה, ואותות ישנים נחלשים עם הזמן.\n" +
+                "• בערך אחת לשלוש הצעות היא מאמן שעוד לא שמעת, כדי לגלות דברים חדשים.\n" +
+                "• הסכתים מומלצים לפי הקטגוריות של מה שאתה עוקב אחריו ושומע, כמו ב-Apple Podcasts ובספוטיפיי."
+
+        const val LINKS_HELP =
+            "הדרך הכי פשוטה:\n" +
+                "1. ביוטיוב, ביוטיוב מיוזיק או בספוטיפיי, לחץ \"שיתוף\".\n" +
+                "2. בחר JUBAL מהרשימה.\n" +
+                "3. השמע יתחיל לבד, בלי תמונה ובלי וידאו.\n\n" +
+                "כדי שקישורים ייפתחו ישר ב-JUBAL (למשל מוואטסאפ):\n" +
+                "1. לחץ למטה על \"פתח את הגדרות הקישורים של JUBAL\".\n" +
+                "2. הפעל \"פתיחת קישורים נתמכים\", ולחץ \"הוספת קישור\" וסמן את כולם.\n" +
+                "3. אם יוטיוב מותקן, ייתכן שתצטרך לכבות את אותה הגדרה ביישומון יוטיוב.\n\n" +
+                "בקישור של ספוטיפיי, JUBAL מחפש את אותו שיר ביוטיוב מיוזיק, ואת אותו פרק במאגר ההסכתים. ספוטיפיי לא מאפשר ליישומונים אחרים להשמיע את הקבצים שלו."
     }
 }

@@ -75,9 +75,10 @@ class PlayerPanel(private val act: MainActivity, private val overlay: FrameLayou
         }
         artist.setOnClickListener {
             val t = act.currentTrack() ?: return@setOnClickListener
-            if (t.kind == Kind.PODCAST && t.feedUrl.isNotBlank()) {
-                hide()
-                act.openPodcast(t.feedUrl, t.artist)
+            hide()
+            when {
+                t.kind == Kind.PODCAST && t.feedUrl.isNotBlank() -> act.openPodcast(t.feedUrl, t.artist)
+                t.isYouTube && t.artist.isNotBlank() -> act.openArtist(ArtistRef(t.artist, t.artistUrl))
             }
         }
         speed.setOnClickListener { nextSpeed() }
@@ -182,7 +183,7 @@ class PlayerPanel(private val act: MainActivity, private val overlay: FrameLayou
 
         label.text = "מתנגן · ${t.kind.label}"
         if (title.text.toString() != t.title) {
-            Tiles.apply(tile, t.artist.ifBlank { t.title }, 0.22f)
+            Tiles.apply(tile, t.artist.ifBlank { t.title }, radiusFraction = 0.08f)
             title.text = t.title
             artist.text = t.artist
         }

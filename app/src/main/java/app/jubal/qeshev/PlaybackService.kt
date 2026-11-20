@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -40,6 +41,12 @@ class PlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
     private val handler = Handler(Looper.getMainLooper())
     private var retriedId: String? = null
+
+    // What is playing now, and how long it has really been heard (for recommendations)
+    private var current: Track? = null
+    private var listenedMs = 0L
+    private var playingSince = 0L
+    private var ended = false
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -84,13 +91,30 @@ class PlaybackService : MediaSessionService() {
 
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                val now = SystemClock.elapsedRealtime()
+                if (isPlaying) {
+                    playingSince = now
+                } else if (playingSince > 0) {
+                    listenedMs += now - playingSince
+                    playingSince = 0
+                }
                 savePosition()
                 handler.removeCallbacks(ticker)
                 if (isPlaying) handler.postDelayed(ticker, 3_000)
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                Track.of(mediaItem)?.let { Store.addHistory(it) }
+                // The previous item finished by itself (AUTO) or the listener moved on (SEEK).
+                finishCurrent(
+                    completed = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO,
+                    skipped = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK,
+                )
+                val track = Track.of(mediaItem)
+                current = track
+                ended = false
+                listenedMs = 0
+                playingSince = if (player.isPlaying) SystemClock.elapsedRealtime() else 0
+                if (track != null) Store.recordStart(track, Track.isActive(mediaItem))
                 retriedId = null
                 handler.postDelayed({ maybeQueueRecommendation() }, 4_000)
             }
@@ -98,6 +122,10 @@ class PlaybackService : MediaSessionService() {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
                     player.currentMediaItem?.mediaId?.takeIf { it.isNotEmpty() }?.let { Store.markDone(it) }
+                    if (!ended) {
+                        finishCurrent(completed = true, skipped = false)
+                        ended = true
+                    }
                 }
             }
 
@@ -157,6 +185,20 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    /** Records how the item that just stopped was heard: finished, or skipped within 30 seconds. */
+    private fun finishCurrent(completed: Boolean, skipped: Boolean) {
+        val track = current ?: return
+        if (ended) return
+        val now = SystemClock.elapsedRealtime()
+        if (playingSince > 0) {
+            listenedMs += now - playingSince
+            playingSince = if (player.isPlaying) now else 0
+        }
+        val early = skipped && listenedMs < 30_000 && (track.durationSec == 0L || track.durationSec > 45)
+        Store.recordEnd(track, listenedMs, completed, early)
+        current = null
+    }
+
     /** Keeps music and videos going: when the queue is about to run out, adds what YouTube suggests next. */
     private fun maybeQueueRecommendation() {
         if (!Store.autoplay()) return
@@ -165,7 +207,8 @@ class PlaybackService : MediaSessionService() {
         val queued = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
         val recent = Store.recentIds(60)
         val next = Store.related(track.id)?.items?.firstOrNull { it.id !in queued && it.id !in recent } ?: return
-        player.addMediaItem(next.toMediaItem())
+        // Added by the app, not chosen by the listener, so it won't count as a preference.
+        player.addMediaItem(next.toMediaItem(active = false))
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {

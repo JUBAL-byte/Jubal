@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark: deep ink with a soft mint accent -->
-    <color name="q_primary">#84D1C6</color>
-    <color name="q_on_primary">#00382F</color>
-    <color name="q_primary_container">#1D4D47</color>
-    <color name="q_on_primary_container">#C6EEE7</color>
-    <color name="q_secondary">#B3CCC7</color>
-    <color name="q_on_secondary">#1E3532</color>
-    <color name="q_secondary_container">#2A3D3A</color>
-    <color name="q_on_secondary_container">#D2E5E1</color>
-    <color name="q_background">#121413</color>
-    <color name="q_on_background">#E6E2DC</color>
-    <color name="q_surface">#121413</color>
-    <color name="q_on_surface">#E6E2DC</color>
-    <color name="q_surface_variant">#2A2D2B</color>
-    <color name="q_on_surface_variant">#B9B4AB</color>
-    <color name="q_outline">#858079</color>
-    <color name="q_outline_variant">#3A3D3B</color>
-    <color name="q_surface_container_lowest">#0D0F0E</color>
-    <color name="q_surface_container_low">#181B1A</color>
-    <color name="q_surface_container">#1C1F1E</color>
-    <color name="q_surface_container_high">#242827</color>
-    <color name="q_surface_container_highest">#2D3130</color>
+    <!-- Dark: deep ink with a soft violet accent -->
+    <color name="q_primary">#B3A5FF</color>
+    <color name="q_on_primary">#24136E</color>
+    <color name="q_primary_container">#3A2A9A</color>
+    <color name="q_on_primary_container">#E6E0FF</color>
+    <color name="q_secondary">#C8C3DC</color>
+    <color name="q_on_secondary">#2F2B42</color>
+    <color name="q_secondary_container">#2B2840</color>
+    <color name="q_on_secondary_container">#E7E2FA</color>
+    <color name="q_background">#0C0C10</color>
+    <color name="q_on_background">#F1F0F5</color>
+    <color name="q_surface">#0C0C10</color>
+    <color name="q_on_surface">#F1F0F5</color>
+    <color name="q_surface_variant">#24232C</color>
+    <color name="q_on_surface_variant">#ACAAB8</color>
+    <color name="q_outline">#77758A</color>
+    <color name="q_outline_variant">#34333F</color>
+    <color name="q_surface_container_lowest">#08080B</color>
+    <color name="q_surface_container_low">#131318</color>
+    <color name="q_surface_container">#17171D</color>
+    <color name="q_surface_container_high">#1F1E26</color>
+    <color name="q_surface_container_highest">#28272F</color>
     <color name="q_error">#F2B8B5</color>
     <color name="q_on_error">#601410</color>
-    <color name="q_tile_text">#EDEAE4</color>
+    <color name="q_tile_text">#FFFFFF</color>
 </resources>

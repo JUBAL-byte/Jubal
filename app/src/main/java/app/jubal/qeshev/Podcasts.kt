@@ -16,7 +16,12 @@ data class PodcastResult(
     val author: String,
     val feedUrl: String,
     val episodeCount: Int,
-)
+    val collectionId: Long = 0,
+    val genreIds: List<String> = emptyList(),
+    val genres: List<String> = emptyList(),
+) {
+    fun ref(): PodcastRef = PodcastRef(name, author, feedUrl, collectionId, genreIds, genres)
+}
 
 data class Episode(
     val title: String,
@@ -25,11 +30,12 @@ data class Episode(
     val audioUrl: String,
     val mime: String,
     val rawDescription: String,
+    val page: String = "",
 ) {
     val isVideo: Boolean get() = mime.startsWith("video/")
 
-    fun toTrack(podcast: String, feedUrl: String): Track =
-        Track.podcast(audioUrl, title, podcast, durationSec, feedUrl, date)
+    fun toTrack(podcast: String, feedUrl: String, author: String = ""): Track =
+        Track.podcast(audioUrl, title, podcast, durationSec, feedUrl, date, author, page)
 }
 
 data class Feed(
@@ -39,36 +45,131 @@ data class Feed(
     val episodes: List<Episode>,
 )
 
-/** Podcast directory search (Apple's free public directory) and RSS feed reading. Text only. */
+/** Podcast directory (Apple's free public directory) and RSS feed reading. Text only. */
 object Podcasts {
-
-    fun search(term: String): List<PodcastResult> {
-        val url = HttpUrl.Builder()
-            .scheme("https")
-            .host("itunes.apple.com")
-            .addPathSegment("search")
-            .addQueryParameter("media", "podcast")
-            .addQueryParameter("entity", "podcast")
-            .addQueryParameter("limit", "50")
-            .addQueryParameter("country", "IL")
-            .addQueryParameter("term", term)
-            .build()
-        val request = Request.Builder().url(url).header("User-Agent", Net.USER_AGENT).build()
+    private fun itunes(path: String, params: Map<String, String>): JSONObject {
+        val b = HttpUrl.Builder().scheme("https").host("itunes.apple.com")
+        path.split('/').filter { it.isNotEmpty() }.forEach { b.addPathSegment(it) }
+        params.forEach { (k, v) -> b.addQueryParameter(k, v) }
+        val request = Request.Builder().url(b.build()).header("User-Agent", Net.USER_AGENT).build()
         Net.client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
-            val json = JSONObject(response.body?.string() ?: "{}")
-            val results = json.optJSONArray("results") ?: return emptyList()
-            val out = ArrayList<PodcastResult>()
-            for (i in 0 until results.length()) {
-                val o = results.optJSONObject(i) ?: continue
-                val feed = o.optString("feedUrl")
-                if (feed.isBlank()) continue
-                val name = o.optString("collectionName").ifBlank { o.optString("trackName") }
-                out += PodcastResult(name, o.optString("artistName"), feed, o.optInt("trackCount"))
-            }
-            return out
+            return JSONObject(response.body?.string() ?: "{}")
         }
     }
+
+    private fun strings(a: org.json.JSONArray?): List<String> =
+        if (a == null) emptyList() else (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }
+
+    private fun results(json: JSONObject): List<PodcastResult> {
+        val results = json.optJSONArray("results") ?: return emptyList()
+        val out = ArrayList<PodcastResult>()
+        for (i in 0 until results.length()) {
+            val o = results.optJSONObject(i) ?: continue
+            val feed = o.optString("feedUrl")
+            if (feed.isBlank()) continue
+            val name = o.optString("collectionName").ifBlank { o.optString("trackName") }
+            out += PodcastResult(
+                name, o.optString("artistName"), feed, o.optInt("trackCount"), o.optLong("collectionId"),
+                strings(o.optJSONArray("genreIds")).filter { it != "26" },
+                strings(o.optJSONArray("genres")).filter { it != "Podcasts" },
+            )
+        }
+        Store.rememberPodcasts(out.map { it.ref() })
+        return out
+    }
+
+    fun search(term: String): List<PodcastResult> = results(
+        itunes("search", mapOf("media" to "podcast", "entity" to "podcast", "limit" to "50", "country" to "IL", "term" to term))
+    )
+
+    /** All the podcasts one creator makes. */
+    fun byAuthor(author: String): List<PodcastResult> {
+        val found = results(
+            itunes(
+                "search",
+                mapOf(
+                    "media" to "podcast", "entity" to "podcast", "limit" to "50", "country" to "IL",
+                    "attribute" to "authorTerm", "term" to author,
+                ),
+            )
+        )
+        val n = norm(author)
+        val exact = found.filter { norm(it.author) == n }
+        return exact.ifEmpty { found.filter { norm(it.author).contains(n) || n.contains(norm(it.author)) } }
+    }
+
+    fun lookup(ids: List<Long>): List<PodcastResult> {
+        if (ids.isEmpty()) return emptyList()
+        val byId = LinkedHashMap<Long, PodcastResult>()
+        ids.distinct().chunked(150).forEach { chunk ->
+            results(itunes("lookup", mapOf("id" to chunk.joinToString(","), "entity" to "podcast", "country" to "IL")))
+                .forEach { byId[it.collectionId] = it }
+        }
+        return ids.mapNotNull { byId[it] }
+    }
+
+    /** The most popular podcasts in one category (how Apple and Spotify group shows). */
+    fun topInGenre(genreId: String, limit: Int = 40): List<PodcastResult> {
+        val ids = ArrayList<Long>()
+        try {
+            val url = "https://itunes.apple.com/il/rss/toppodcasts/limit=$limit/genre=$genreId/json"
+            Net.get(url).use { response ->
+                if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                val feed = JSONObject(response.body?.string() ?: "{}").optJSONObject("feed")
+                val entries = feed?.opt("entry")
+                val list = when (entries) {
+                    is org.json.JSONArray -> (0 until entries.length()).mapNotNull { entries.optJSONObject(it) }
+                    is JSONObject -> listOf(entries)
+                    else -> emptyList()
+                }
+                for (e in list) {
+                    val id = e.optJSONObject("id")?.optJSONObject("attributes")?.optString("im:id")?.toLongOrNull()
+                    if (id != null) ids += id
+                }
+            }
+        } catch (e: Exception) {
+            // fall back to a genre search below
+        }
+        if (ids.isNotEmpty()) return lookup(ids)
+        return results(
+            itunes(
+                "search",
+                mapOf(
+                    "media" to "podcast", "entity" to "podcast", "limit" to "$limit", "country" to "IL",
+                    "attribute" to "genreIndex", "term" to genreId,
+                ),
+            )
+        )
+    }
+
+    /** Episodes by name, across all podcasts. */
+    fun searchEpisodes(term: String): List<Track> {
+        val json = itunes(
+            "search",
+            mapOf("media" to "podcast", "entity" to "podcastEpisode", "limit" to "40", "country" to "IL", "term" to term),
+        )
+        val results = json.optJSONArray("results") ?: return emptyList()
+        val out = ArrayList<Track>()
+        for (i in 0 until results.length()) {
+            val o = results.optJSONObject(i) ?: continue
+            val audio = o.optString("episodeUrl")
+            if (audio.isBlank()) continue
+            out += Track.podcast(
+                audio,
+                o.optString("trackName"),
+                o.optString("collectionName"),
+                o.optLong("trackTimeMillis") / 1000,
+                o.optString("feedUrl"),
+                parseDate(o.optString("releaseDate")),
+                o.optString("artistName"),
+                o.optString("trackViewUrl"),
+            )
+        }
+        return out
+    }
+
+    fun norm(text: String): String = text.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
 
     fun loadFeed(url: String): Feed {
         Net.get(url).use { response ->
@@ -97,6 +198,7 @@ object Podcasts {
         var iDescription = ""
         var iSummary = ""
         var iContent = ""
+        var iLink = ""
 
         val path = ArrayList<String>()
         var event = p.eventType
@@ -107,7 +209,7 @@ object Podcasts {
                 if (name == "item" || name == "entry") {
                     inItem = true
                     iTitle = ""; iDate = ""; iDuration = ""; iUrl = ""; iType = ""
-                    iDescription = ""; iSummary = ""; iContent = ""
+                    iDescription = ""; iSummary = ""; iContent = ""; iLink = ""
                     path.add(name)
                 } else if (inItem && (parent == "item" || parent == "entry")) {
                     when (name) {
@@ -123,11 +225,20 @@ object Podcasts {
                             path.add(name)
                         }
                         "link" -> {
-                            if (p.getAttributeValue(null, "rel") == "enclosure" && iUrl.isEmpty()) {
-                                iUrl = p.getAttributeValue(null, "href") ?: ""
-                                iType = p.getAttributeValue(null, "type") ?: ""
+                            val rel = p.getAttributeValue(null, "rel")
+                            val href = p.getAttributeValue(null, "href")
+                            if (rel == "enclosure") {
+                                if (iUrl.isEmpty()) {
+                                    iUrl = href ?: ""
+                                    iType = p.getAttributeValue(null, "type") ?: ""
+                                }
+                                path.add(name)
+                            } else if (href != null) {
+                                if (iLink.isEmpty()) iLink = href
+                                path.add(name)
+                            } else {
+                                iLink = readText(p)
                             }
-                            path.add(name)
                         }
                         "media:content" -> {
                             if (iUrl.isEmpty()) {
@@ -161,6 +272,7 @@ object Podcasts {
                             audioUrl = iUrl.trim(),
                             mime = iType.lowercase(Locale.ROOT),
                             rawDescription = iContent.ifBlank { iDescription.ifBlank { iSummary } },
+                            page = iLink.trim(),
                         )
                     }
                 }

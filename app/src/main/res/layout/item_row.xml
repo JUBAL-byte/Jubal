@@ -15,6 +15,16 @@
     android:paddingEnd="4dp"
     android:paddingBottom="@dimen/row_pad_v">
 
+    <TextView
+        android:id="@+id/row_number"
+        android:layout_width="26dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <FrameLayout
         android:layout_width="@dimen/tile"
         android:layout_height="@dimen/tile">

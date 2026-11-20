@@ -41,9 +41,9 @@
                 android:paddingStart="12dp"
                 android:paddingEnd="8dp"
                 android:textAlignment="viewStart"
+                android:fontFamily="sans-serif-black"
                 android:textColor="?attr/colorOnSurface"
-                android:textSize="@dimen/top_title"
-                android:textStyle="bold" />
+                android:textSize="@dimen/top_title" />
 
             <ImageButton
                 android:id="@+id/top_action"
@@ -166,4 +166,50 @@
         android:clickable="true"
         android:focusable="false"
         android:visibility="gone" />
+
+    <!-- Opening screen: logo, name and slogan while the app gets ready -->
+    <LinearLayout
+        android:id="@+id/splash"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_splash"
+        android:clickable="true"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/splash_logo"
+            android:layout_width="@dimen/splash_logo"
+            android:layout_height="@dimen/splash_logo"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_logo" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="sans-serif-black"
+            android:letterSpacing="0.2"
+            android:text="JUBAL"
+            android:textColor="#FFFFFF"
+            android:textSize="@dimen/splash_title" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/slogan"
+            android:textColor="#E6FFFFFF"
+            android:textSize="16sp" />
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="36dp"
+            android:indeterminate="true"
+            app:indicatorColor="#FFFFFF"
+            app:indicatorSize="28dp"
+            app:trackThickness="3dp" />
+    </LinearLayout>
 </FrameLayout>

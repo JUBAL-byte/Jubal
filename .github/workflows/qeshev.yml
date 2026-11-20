@@ -1,4 +1,4 @@
-name: Qeshev APK
+name: JUBAL APK
 
 on:
   push:
@@ -37,12 +37,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="Qeshev-${{ github.run_number }}.apk"
+          APK="JUBAL-${{ github.run_number }}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$APK"
-          gh release create "qeshev-${{ github.run_number }}" "$APK" \
+          gh release create "jubal-app-${{ github.run_number }}" "$APK" \
             --target "${{ github.sha }}" \
-            --title "Qeshev ${{ github.run_number }}" \
-            --notes "פודקאסטים, שמע של סרטונים ומוזיקה, בלי תמונות ובלי וידאו. מתקינים את הקובץ $APK בטלפון." \
+            --title "JUBAL ${{ github.run_number }}" \
+            --notes "JUBAL: מוזיקה, הסכתים ושמע של סרטונים, בלי תמונות ובלי וידאו. מתקינים את הקובץ $APK בטלפון, מעל Qeshev." \
             --latest=false
 
       - name: Publish build log on failure
