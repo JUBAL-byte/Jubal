@@ -171,19 +171,19 @@ class ArtistScreen(act: MainActivity, private var artist: ArtistRef) : ListScree
 
 // ====================================================================== Album or playlist
 
-class AlbumScreen(act: MainActivity, private var list: YtList) : ListScreen(act) {
-    override val title: String get() = list.title.ifBlank { "רשימה" }
+class AlbumScreen(act: MainActivity, private var album: YtList) : ListScreen(act) {
+    override val title: String get() = album.title.ifBlank { "רשימה" }
     override val topIcon = R.drawable.ic_more_vert
     override val topLabel = "אפשרויות"
-    override fun onTopAction() = act.listActions(list, tracks)
+    override fun onTopAction() = act.listActions(album, tracks)
 
     private var tracks: List<Track>? = null
     private var error = false
 
-    private val isAlbum: Boolean get() = list.url.contains("OLAK5uy") || list.count in 1..3
+    private val isAlbum: Boolean get() = album.url.contains("OLAK5uy") || album.count in 1..3
     private val context: PlayContext
         get() = PlayContext(
-            if (isAlbum) PlayContext.ALBUM else PlayContext.YT_LIST, list.title, list.artist, list.url, list.kind, artistUrl = list.artistUrl,
+            if (isAlbum) PlayContext.ALBUM else PlayContext.YT_LIST, album.title, album.artist, album.url, album.kind, artistUrl = album.artistUrl,
         )
 
     override fun onShown() {
@@ -196,9 +196,9 @@ class AlbumScreen(act: MainActivity, private var list: YtList) : ListScreen(act)
         redraw()
         act.lifecycleScope.launch {
             try {
-                val (name, loaded) = withContext(Dispatchers.IO) { YouTube.loadList(list.url, list.kind) }
-                val artist = list.artist.ifBlank { loaded.groupingBy { it.artist }.eachCount().maxByOrNull { it.value }?.key ?: "" }
-                list = list.copy(title = list.title.ifBlank { name }, artist = artist, count = loaded.size.toLong())
+                val (name, loaded) = withContext(Dispatchers.IO) { YouTube.loadList(album.url, album.kind) }
+                val artist = album.artist.ifBlank { loaded.groupingBy { it.artist }.eachCount().maxByOrNull { it.value }?.key ?: "" }
+                album = album.copy(title = album.title.ifBlank { name }, artist = artist, count = loaded.size.toLong())
                 tracks = loaded
                 act.refreshTop(this@AlbumScreen)
             } catch (e: Exception) {
@@ -211,21 +211,21 @@ class AlbumScreen(act: MainActivity, private var list: YtList) : ListScreen(act)
     override fun render() {
         val items = ArrayList<Item>()
         val t = tracks
-        val saved = Store.isAlbumSaved(list.url)
+        val saved = Store.isAlbumSaved(album.url)
         val total = t?.sumOf { it.durationSec } ?: 0
         items += HeroItem(
-            title = list.title.ifBlank { "רשימה" },
-            subtitle = Format.join(list.artist, if (t != null) "${t.size} שירים" else "", if (total > 0) Format.duration(total) else ""),
-            tileKey = list.artist.ifBlank { list.title } + list.title,
+            title = album.title.ifBlank { "רשימה" },
+            subtitle = Format.join(album.artist, if (t != null) "${t.size} שירים" else "", if (total > 0) Format.duration(total) else ""),
+            tileKey = album.artist.ifBlank { album.title } + album.title,
             buttons = listOf(
                 HeroButton("נגן", R.drawable.ic_play_arrow_fill, HeroButton.FILLED) { t?.let { act.playAll(it, context) } },
                 HeroButton("ערבב", R.drawable.ic_shuffle, HeroButton.TONAL) { t?.let { act.shuffle(it, context) } },
                 HeroButton(if (saved) "בספרייה" else "שמור", if (saved) R.drawable.ic_library_add_check else R.drawable.ic_library_add, HeroButton.OUTLINED) {
-                    val now = Store.toggleAlbum(list)
+                    val now = Store.toggleAlbum(album)
                     act.toast(if (now) "נשמר בספרייה" else "הוסר מהספרייה")
                 },
             ),
-            onSubtitle = if (list.artist.isNotBlank()) ({ act.openArtist(ArtistRef(list.artist, list.artistUrl)) }) else null,
+            onSubtitle = if (album.artist.isNotBlank()) ({ act.openArtist(ArtistRef(album.artist, album.artistUrl)) }) else null,
         )
         when {
             t == null && error -> {
