@@ -507,6 +507,14 @@ object Store {
         prefs.edit().remove("cache_t_$key").remove("cache_v_$key").apply()
     }
 
+    // ------------------------------------------------------------------ app updates
+
+    fun lastUpdateCheck(): Long = prefs.getLong("update_check", 0)
+
+    fun setLastUpdateCheck(time: Long) {
+        prefs.edit().putLong("update_check", time).apply()
+    }
+
     // ------------------------------------------------------------------ playback settings
 
     @Synchronized fun autoplay(): Boolean = autoplay

@@ -4,6 +4,11 @@ on:
   push:
     branches: [qeshev]
   workflow_dispatch:
+    inputs:
+      extractor:
+        description: "NewPipe extractor version to build with (empty: the one in extractor.version)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -25,9 +30,24 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # JitPack builds a new extractor version the first time someone asks for it
+      - name: Wait for JitPack
+        if: inputs.extractor != ''
+        env:
+          V: ${{ inputs.extractor }}
+        run: |
+          for i in $(seq 1 15); do
+            if curl -fsS -o /dev/null "https://jitpack.io/com/github/TeamNewPipe/NewPipeExtractor/$V/NewPipeExtractor-$V.pom"; then
+              echo "ready"; exit 0
+            fi
+            sleep 60
+          done
+          echo "JitPack not ready yet, trying the build anyway"
+
       - name: Build signed APK
         env:
           VERSION_CODE: ${{ github.run_number }}
+          EXTRACTOR_VERSION: ${{ inputs.extractor }}
         run: |
           chmod +x gradlew
           set -o pipefail
@@ -42,8 +62,21 @@ jobs:
           gh release create "jubal-app-${{ github.run_number }}" "$APK" \
             --target "${{ github.sha }}" \
             --title "JUBAL ${{ github.run_number }}" \
-            --notes "JUBAL: מוזיקה, הסכתים ושמע של סרטונים, בלי תמונות ובלי וידאו. מתקינים את הקובץ $APK בטלפון, מעל Qeshev." \
+            --notes "JUBAL: מוזיקה, הסכתים ושמע מיוטיוב, בלי תמונות ובלי וידאו. מתקינים את הקובץ $APK בטלפון, מעל הגרסה הקודמת. (extractor: ${{ inputs.extractor }}$(test -n "${{ inputs.extractor }}" || cat extractor.version))" \
             --latest=false
+
+      # Only after a good build: remember the newer extractor for the next builds
+      - name: Keep the newer extractor
+        if: inputs.extractor != ''
+        env:
+          V: ${{ inputs.extractor }}
+        run: |
+          echo "$V" > extractor.version
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add extractor.version
+          git commit -m "Build with NewPipe extractor $V for the latest YouTube fixes [skip ci]" || exit 0
+          git push origin HEAD:qeshev
 
       - name: Publish build log on failure
         if: failure()

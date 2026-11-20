@@ -43,6 +43,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -89,6 +90,10 @@ class MainActivity : AppCompatActivity() {
         override fun onPlayerError(error: PlaybackException) {
             handler.postDelayed({
                 if (controller?.playerError != null) {
+                    if (currentTrack()?.isYouTube == true) {
+                        // Maybe YouTube changed something: a fixed build may already be waiting
+                        checkForUpdate(force = true, quietIfNone = true, afterYouTubeError = true)
+                    }
                     toast("ההשמעה נעצרה. לחץ נגן כדי לנסות שוב, או בדוק את החיבור לאינטרנט.")
                 }
             }, 4_000)
@@ -152,6 +157,10 @@ class MainActivity : AppCompatActivity() {
         if (savedInstanceState == null) {
             showSplash()
             handleIntent(intent)
+            lifecycleScope.launch {
+                delay(3_000)
+                checkForUpdate(force = false, quietIfNone = true)
+            }
         } else if (savedInstanceState.getBoolean(STATE_PLAYER)) {
             playerPanel.show(animate = false)
         }
@@ -757,6 +766,64 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+
+    // ------------------------------------------------------------------ updates (keep YouTube audio working)
+
+    private var updateOffered = false
+
+    fun checkForUpdate(force: Boolean, quietIfNone: Boolean, afterYouTubeError: Boolean = false) {
+        if (afterYouTubeError && updateOffered) return
+        lifecycleScope.launch {
+            val release = Updater.newer(this@MainActivity, force)
+            when {
+                release != null -> offerUpdate(release, afterYouTubeError)
+                !quietIfNone -> toast("יש לך את הגרסה האחרונה")
+            }
+        }
+    }
+
+    private fun offerUpdate(release: Updater.Release, afterYouTubeError: Boolean) {
+        if (isFinishing || isDestroyed) return
+        updateOffered = true
+        val message = if (afterYouTubeError) {
+            "ייתכן שיוטיוב שינה משהו, ויש כבר גרסה מתוקנת. העדכון שומר על כל מה ששמרת."
+        } else {
+            "בגרסה ${release.number} יש תיקונים, כדי שהשמע מיוטיוב ימשיך לעבוד. העדכון שומר על כל מה ששמרת."
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("גרסה חדשה של JUBAL")
+            .setMessage(message)
+            .setPositiveButton("עדכן עכשיו") { _, _ -> startUpdate(release) }
+            .setNegativeButton("אחר כך", null)
+            .show()
+    }
+
+    private fun startUpdate(release: Updater.Release) {
+        val bar = LinearProgressIndicator(this).apply {
+            max = 100
+            isIndeterminate = false
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+        }
+        val box = FrameLayout(this).apply {
+            setPadding(dp(24), dp(12), dp(24), dp(4))
+            addView(bar)
+        }
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("מוריד את העדכון…")
+            .setView(box)
+            .setCancelable(false)
+            .show()
+        lifecycleScope.launch {
+            try {
+                val file = Updater.download(this@MainActivity, release) { bar.setProgressCompat(it, true) }
+                dialog.dismiss()
+                Updater.install(this@MainActivity, file)
+            } catch (e: Exception) {
+                dialog.dismiss()
+                toast("ההורדה לא הצליחה. נסה שוב מההגדרות.")
+            }
+        }
+    }
 
     companion object {
         private const val STATE_TAB = "tab"

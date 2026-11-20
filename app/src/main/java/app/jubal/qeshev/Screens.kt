@@ -856,6 +856,14 @@ class SettingsScreen(act: MainActivity) : ListScreen(act) {
             onClick = { linksHelp() },
         )
 
+        items += HeaderItem("עדכונים")
+        items += EntityItem(
+            "בדיקת עדכונים",
+            "JUBAL בודק לבד כל יום, כדי שהשמע מיוטיוב ימשיך לעבוד גם אחרי שינויים ביוטיוב",
+            "עדכון", R.drawable.ic_download,
+            onClick = { act.checkForUpdate(force = true, quietIfNone = false) },
+        )
+
         items += HeaderItem("המלצות ופרטיות")
         items += EntityItem("איך עובדות ההמלצות", "כמו ביוטיוב ובספוטיפיי, רק ממה שבחרת", "המלצות", R.drawable.ic_info,
             onClick = { act.showText("איך עובדות ההמלצות", RECS_HELP) })

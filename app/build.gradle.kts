@@ -7,6 +7,11 @@ plugins {
 
 val buildNumber = (System.getenv("VERSION_CODE") ?: "1").toInt()
 
+// The YouTube extractor version lives in extractor.version, so the daily check on
+// GitHub can move to a newer one (with YouTube fixes) without touching this file.
+val extractorVersion: String = System.getenv("EXTRACTOR_VERSION")?.trim()?.takeIf { it.isNotEmpty() }
+    ?: rootProject.file("extractor.version").readText().trim()
+
 android {
     namespace = "app.jubal.qeshev"
     compileSdk = 35
@@ -74,7 +79,7 @@ kotlin {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.27.1")
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:$extractorVersion")
 
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-session:1.5.1")
