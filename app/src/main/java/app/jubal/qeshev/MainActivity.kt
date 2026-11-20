@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.content.res.Configuration
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -68,6 +69,10 @@ class MainActivity : AppCompatActivity() {
     private val tabIds = intArrayOf(R.id.nav_home, R.id.nav_search, R.id.nav_library, R.id.nav_settings)
     private val stacks = List(4) { ArrayList<Screen>() }
     private var tab = 0
+    // Tabs visited before this one, so "back" at a tab's start returns to where you came from
+    private val tabHistory = ArrayList<Int>()
+    private var goingBack = false
+    private var keyboardOpen = false
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     var controller: MediaController? = null
@@ -80,6 +85,7 @@ class MainActivity : AppCompatActivity() {
     private val ticker = object : Runnable {
         override fun run() {
             updateMiniProgress()
+            miniWave.playing = controller?.isPlaying == true && !playerPanel.isShown
             if (playerPanel.isShown) playerPanel.update()
             handler.postDelayed(this, 500)
         }
@@ -129,6 +135,20 @@ class MainActivity : AppCompatActivity() {
         backButton.setOnClickListener { goBack() }
         topAction.setOnClickListener { stacks[tab].lastOrNull()?.onTopAction() }
         mini.setOnClickListener { playerPanel.show() }
+
+        // While typing, the bottom bar and the mini player step aside so the search box stays in view
+        val rootView = findViewById<View>(android.R.id.content)
+        rootView.viewTreeObserver.addOnGlobalLayoutListener {
+            val frame = Rect()
+            rootView.getWindowVisibleDisplayFrame(frame)
+            val screen = rootView.rootView.height
+            val open = screen > 0 && screen - frame.bottom > screen * 0.2
+            if (open != keyboardOpen) {
+                keyboardOpen = open
+                nav.visibility = if (open) View.GONE else View.VISIBLE
+                onPlayerChanged()
+            }
+        }
         miniPlay.setOnClickListener { togglePlay() }
 
         val startTab = (savedInstanceState?.getInt(STATE_TAB) ?: 0).coerceIn(0, 3)
@@ -300,13 +320,27 @@ class MainActivity : AppCompatActivity() {
             return true
         }
         val stack = stacks[tab]
+        // First undo a step inside the page itself (a search, a filter)
+        if (stack.lastOrNull()?.onBack() == true) return true
         if (stack.size > 1) {
             stack.removeAt(stack.size - 1).onHidden()
             display(stack.last())
             return true
         }
+        // At the start of this tab: back to the tab you came from, and finally home
+        while (tabHistory.isNotEmpty()) {
+            val previous = tabHistory.removeAt(tabHistory.size - 1)
+            if (previous != tab) {
+                goingBack = true
+                selectTab(previous)
+                goingBack = false
+                return true
+            }
+        }
         if (tab != 0) {
+            goingBack = true
             selectTab(0)
+            goingBack = false
             return true
         }
         return false
@@ -321,6 +355,11 @@ class MainActivity : AppCompatActivity() {
     private fun showTab(index: Int) {
         if (playerPanel.isShown) playerPanel.hide()
         stacks[tab].lastOrNull()?.onHidden()
+        if (!goingBack && index != tab) {
+            tabHistory.remove(tab)
+            tabHistory.add(tab)
+            while (tabHistory.size > 4) tabHistory.removeAt(0)
+        }
         tab = index
         val stack = stacks[index]
         if (stack.isEmpty()) stack.add(rootFor(index))
@@ -404,8 +443,8 @@ class MainActivity : AppCompatActivity() {
         if (c == null || item == null || track == null) {
             mini.visibility = View.GONE
         } else {
-            mini.visibility = View.VISIBLE
-            miniWave.playing = c.isPlaying
+            mini.visibility = if (keyboardOpen) View.GONE else View.VISIBLE
+            miniWave.playing = c.isPlaying && !playerPanel.isShown
             miniTitle.text = track.title
             miniArtist.text = track.artist
             miniPlay.setImageResource(if (c.playWhenReady) R.drawable.ic_pause_fill else R.drawable.ic_play_arrow_fill)

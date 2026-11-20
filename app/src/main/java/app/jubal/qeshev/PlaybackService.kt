@@ -19,6 +19,7 @@ import androidx.media3.common.util.BitmapLoader
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.RenderersFactory
@@ -29,6 +30,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import java.util.concurrent.Executors
 
 /**
  * Plays audio in the background. The player only has an audio renderer, so it cannot
@@ -47,6 +49,12 @@ class PlaybackService : MediaSessionService() {
     private var listenedMs = 0L
     private var playingSince = 0L
     private var ended = false
+
+    // Looks up the next YouTube item's audio link while the current one plays,
+    // so moving on (by itself or with "next") starts without the lookup wait.
+    private val prefetcher = Executors.newSingleThreadExecutor()
+    private var prefetchedId: String? = null
+    private val prefetch = Runnable { prefetchNext() }
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -67,8 +75,14 @@ class PlaybackService : MediaSessionService() {
         val upstream = DefaultDataSource.Factory(this, RoutingHttpDataSource.Factory())
         val dataSources = ResolvingDataSource.Factory(upstream, StreamResolver(applicationContext))
 
+        // Start after one second of audio instead of the default two and a half
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(15_000, 60_000, 1_000, 2_500)
+            .build()
+
         player = ExoPlayer.Builder(this, audioOnly)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSources))
+            .setLoadControl(loadControl)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -117,6 +131,14 @@ class PlaybackService : MediaSessionService() {
                 if (track != null) Store.recordStart(track, Track.isActive(mediaItem))
                 retriedId = null
                 handler.postDelayed({ maybeQueueRecommendation() }, 4_000)
+                handler.removeCallbacks(prefetch)
+                handler.postDelayed(prefetch, 1_500)
+            }
+
+            override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+                // Something was added to or removed from the queue
+                handler.removeCallbacks(prefetch)
+                handler.postDelayed(prefetch, 1_000)
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -206,9 +228,20 @@ class PlaybackService : MediaSessionService() {
         if (track.kind == Kind.PODCAST || player.hasNextMediaItem()) return
         val queued = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
         val recent = Store.recentIds(60)
-        val next = Store.related(track.id)?.items?.firstOrNull { it.id !in queued && it.id !in recent } ?: return
+        val next = Store.related(track.id)?.items?.firstOrNull {
+            it.id !in queued && it.id !in recent && (track.kind != Kind.MUSIC || Recs.looksLikeMusic(it))
+        } ?: return
         // Added by the app, not chosen by the listener, so it won't count as a preference.
         player.addMediaItem(next.toMediaItem(active = false))
+    }
+
+    private fun prefetchNext() {
+        val index = player.nextMediaItemIndex
+        if (index == C.INDEX_UNSET) return
+        val next = Track.of(player.getMediaItemAt(index)) ?: return
+        if (!next.isYouTube || next.id == prefetchedId || Store.downloadFor(next.id) != null) return
+        prefetchedId = next.id
+        prefetcher.execute { runCatching { YouTube.audioFor(next.videoId, next.kind) } }
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -217,6 +250,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        prefetcher.shutdownNow()
         session?.run {
             player.release()
             release()

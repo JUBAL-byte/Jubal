@@ -57,6 +57,20 @@ object Recs {
 
     private fun artistOf(t: Track): ArtistRef = ArtistRef(t.artist, t.artistUrl)
 
+    private val talk = Regex(
+        "פודקאסט|הסכת|פרק\\s*\\d|פרק מס|ראיון|הרצאה|שיעור|podcast|episode|interview|lecture|#\\d",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * Next to a song YouTube also suggests talk: podcast episodes, interviews, lectures.
+     * Those are not music, so they never count as a similar artist or a song for you.
+     */
+    fun looksLikeMusic(t: Track): Boolean {
+        if (t.durationSec > 0 && (t.durationSec < 50 || t.durationSec > 600)) return false
+        return !talk.containsMatchIn(t.title)
+    }
+
     /**
      * Music you chose yourself, as lowercase "title artist" text with a weight,
      * so search can offer categories only to people who listen to them.
@@ -96,7 +110,7 @@ object Recs {
             if (seedScore <= 0 || artistOf(seed).key !in topKeys) continue
             val set = Store.related(id) ?: continue
             set.items.forEachIndexed { i, t ->
-                if (t.artist.isBlank()) return@forEachIndexed
+                if (t.artist.isBlank() || !looksLikeMusic(t)) return@forEachIndexed
                 val a = artistOf(t)
                 if (a.key in topKeys) return@forEachIndexed
                 val old = count[a.key]
@@ -106,15 +120,16 @@ object Recs {
         return count.values.sortedByDescending { it.second }.map { it.first }.take(limit)
     }
 
-    /** Artists YouTube suggests next to this artist's songs that you played ("fans also like"). */
+    /** Similar artists: musicians YouTube suggests next to this artist's songs that you played. */
     fun similarTo(artist: ArtistRef, limit: Int): List<ArtistRef> {
         val key = artist.key
         val count = HashMap<String, Pair<ArtistRef, Double>>()
+        val talkers = Store.subscriptions().map { Spelling.key(it.author) }.toSet()
         for (st in Store.stats()) {
             if (artistOf(st.track).key != key) continue
             val set = Store.related(st.track.id) ?: continue
             set.items.forEachIndexed { i, t ->
-                if (t.artist.isBlank()) return@forEachIndexed
+                if (t.artist.isBlank() || !looksLikeMusic(t) || Spelling.key(t.artist) in talkers) return@forEachIndexed
                 val a = artistOf(t)
                 if (a.key == key) return@forEachIndexed
                 val old = count[a.key]
@@ -145,6 +160,7 @@ object Recs {
             val set = Store.related(seed.id) ?: continue
             set.items.forEachIndexed { i, t ->
                 if (t.id in skip || t.kind !in kinds) return@forEachIndexed
+                if (t.kind == Kind.MUSIC && !looksLikeMusic(t)) return@forEachIndexed
                 val add = seedScore / (1 + i * 0.25)
                 val c = cands.getOrPut(t.id) { Cand(t, 0.0, seed.title, 0.0) }
                 c.score += add

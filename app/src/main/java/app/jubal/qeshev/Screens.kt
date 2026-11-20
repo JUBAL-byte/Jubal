@@ -37,6 +37,8 @@ abstract class Screen(protected val act: MainActivity) {
     open fun onPlayerItemChanged() {}
     /** The tab was tapped again while already showing this page. */
     open fun onReselected() {}
+    /** "Back" inside the page (clear a search, reset a filter). False when the page is already as it opens. */
+    open fun onBack(): Boolean = false
 }
 
 /** A screen made of one list, redrawn whenever saved data changes. */
@@ -203,6 +205,14 @@ class HomeScreen(act: MainActivity) : ListScreen(act) {
         load(false)
     }
 
+    override fun onBack(): Boolean {
+        if (filter == 0) return false
+        filter = 0
+        render()
+        list.scrollToPosition(0)
+        return true
+    }
+
     private fun load(force: Boolean) {
         if (!loadingEpisodes && Store.subscriptions().isNotEmpty()) {
             loadingEpisodes = true
@@ -337,6 +347,7 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
     private var filter = 0
     private var generation = 0
     private var message = ""
+    private var suggestion = ""
     private var suppressWatcher = false
     private val debounce = Handler(Looper.getMainLooper())
 
@@ -473,6 +484,23 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
         debounce.removeCallbacksAndMessages(null)
     }
 
+    override fun onBack(): Boolean {
+        if (!::input.isInitialized || (query.isEmpty() && input.text.isNullOrEmpty() && filter == 0)) return false
+        debounce.removeCallbacksAndMessages(null)
+        suppressWatcher = true
+        input.setText("")
+        suppressWatcher = false
+        query = ""
+        filter = 0
+        generation++
+        loading = false
+        message = ""
+        suggestion = ""
+        render()
+        list.scrollToPosition(0)
+        return true
+    }
+
     /** Fills the box and searches, e.g. for a Spotify link that had no exact match. */
     fun searchFor(q: String, withFilter: Int = filter) {
         view()
@@ -502,6 +530,7 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
         query = q
         val gen = ++generation
         message = ""
+        suggestion = ""
         loading = true
         ytSearch = null
         ytResults.clear()
@@ -530,13 +559,25 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
                             4 -> YtSearch.MUSIC_PLAYLISTS to Kind.MUSIC
                             else -> YtSearch.VIDEOS to Kind.VIDEO
                         }
-                        val s = YtSearch(q, code, kind)
-                        val found = withContext(Dispatchers.IO) { s.first() }
+                        // Also try the spelling with a geresh (גימבו גיי → ג'ימבו ג'יי)
+                        val qk = Spelling.key(q)
+                        val typed = YtSearch(q, code, kind)
+                        val variant = Spelling.withGeresh(q)?.let { YtSearch(it, code, kind) }
+                        val (typedR, variantR) = withContext(Dispatchers.IO) {
+                            coroutineScope {
+                                val x = async { typed.first() }
+                                val y = async { variant?.let { v -> runCatching { v.first() }.getOrNull() } ?: emptyList() }
+                                x.await() to y.await()
+                            }
+                        }
                         if (gen != generation) return@launch
-                        ytSearch = s
+                        val variantWins = variant != null &&
+                            variantR.count { Spelling.fit(it, qk) == 2 } > typedR.count { Spelling.fit(it, qk) == 2 }
+                        ytSearch = if (variantWins) variant else typed
                         ytResults.clear()
-                        ytResults += found
-                        if (found.isEmpty()) message = "לא נמצאו תוצאות."
+                        ytResults += if (variantWins) Spelling.merge(qk, variantR, typedR) else Spelling.merge(qk, typedR, variantR)
+                        if (ytResults.none { Spelling.fit(it, qk) == 2 }) suggestion = suggestionFor(q, typed.suggestion)
+                        if (ytResults.isEmpty()) message = "לא נמצאו תוצאות."
                     }
                 }
             } catch (e: Exception) {
@@ -549,23 +590,38 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
         }
     }
 
+    private class Found(val results: List<YtResult>, val suggestion: String)
+
     private suspend fun searchAll(q: String, gen: Int) = coroutineScope {
-        fun yt(code: String, kind: Kind) = async(Dispatchers.IO) {
-            runCatching { YtSearch(q, code, kind).first() }.getOrDefault(emptyList())
+        fun yt(query: String, code: String, kind: Kind) = async(Dispatchers.IO) {
+            runCatching {
+                val s = YtSearch(query, code, kind)
+                Found(s.first(), s.suggestion)
+            }.getOrDefault(Found(emptyList(), ""))
         }
-        val s = yt(YtSearch.SONGS, Kind.MUSIC)
-        val a = yt(YtSearch.ARTISTS, Kind.MUSIC)
-        val al = yt(YtSearch.ALBUMS, Kind.MUSIC)
-        val v = yt(YtSearch.VIDEOS, Kind.VIDEO)
-        val pl = yt(YtSearch.MUSIC_PLAYLISTS, Kind.MUSIC)
+        val qk = Spelling.key(q)
+        // Also try the spelling with a geresh (גימבו גיי → ג'ימבו ג'יי) for songs and artists
+        val variant = Spelling.withGeresh(q)
+        val s = yt(q, YtSearch.SONGS, Kind.MUSIC)
+        val a = yt(q, YtSearch.ARTISTS, Kind.MUSIC)
+        val sv = variant?.let { yt(it, YtSearch.SONGS, Kind.MUSIC) }
+        val av = variant?.let { yt(it, YtSearch.ARTISTS, Kind.MUSIC) }
+        val al = yt(q, YtSearch.ALBUMS, Kind.MUSIC)
+        val v = yt(q, YtSearch.VIDEOS, Kind.VIDEO)
+        val pl = yt(q, YtSearch.MUSIC_PLAYLISTS, Kind.MUSIC)
         val p = async(Dispatchers.IO) { runCatching { Podcasts.search(q) }.getOrDefault(emptyList()) }
-        val songsR = s.await()
-        val artistsR = a.await()
-        val albumsR = al.await()
-        val videosR = v.await()
-        val playlistsR = pl.await()
+        val songsF = s.await()
+        val artistsF = a.await()
+        val songsR = Spelling.merge(qk, songsF.results, sv?.await()?.results ?: emptyList())
+        val artistsR = Spelling.merge(qk, artistsF.results, av?.await()?.results ?: emptyList())
+        val albumsR = Spelling.merge(qk, al.await().results)
+        val videosR = Spelling.merge(qk, v.await().results)
+        val playlistsR = Spelling.merge(qk, pl.await().results)
         val podsR = p.await()
         if (gen != generation) return@coroutineScope
+        if ((songsR + artistsR).none { Spelling.fit(it, qk) == 2 }) {
+            suggestion = suggestionFor(q, songsF.suggestion.ifBlank { artistsF.suggestion })
+        }
         songs = songsR.mapNotNull { (it as? YtTrackResult)?.track }
         artists = artistsR.mapNotNull { (it as? YtArtistResult)?.artist }
         albumsFound = albumsR.mapNotNull { (it as? YtListResult)?.list }
@@ -578,6 +634,10 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
         Unit
     }
 
+    /** YouTube's "did you mean", unless it is just the same words. */
+    private fun suggestionFor(q: String, suggested: String): String =
+        suggested.takeIf { it.isNotBlank() && Spelling.key(it) != Spelling.key(q) } ?: ""
+
     private fun more() {
         val s = ytSearch ?: return
         if (loadingMore) return
@@ -587,7 +647,10 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
         act.lifecycleScope.launch {
             try {
                 val found = withContext(Dispatchers.IO) { s.more() }
-                if (gen == generation) ytResults += found
+                if (gen == generation) {
+                    val seen = ytResults.map { Spelling.idOf(it) }.toHashSet()
+                    ytResults += found.filter { seen.add(Spelling.idOf(it)) }
+                }
             } catch (e: Exception) {
                 act.toast("לא הצלחתי לטעון עוד תוצאות")
             }
@@ -630,6 +693,11 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
             adapter.items = items
             return
         }
+        val suggested = suggestion
+        if (suggested.isNotEmpty()) {
+            items += EntityItem("האם התכוונת: $suggested", "חיפוש לפי האיות של יוטיוב", "suggest", R.drawable.ic_search,
+                onClick = { searchFor(suggested) })
+        }
         if (message.isNotEmpty()) items += MessageItem(message)
 
         when (filter) {
@@ -653,8 +721,8 @@ class SearchScreen(act: MainActivity) : ListScreen(act) {
     }
 
     private fun renderAll(items: ArrayList<Item>) {
-        val qn = Podcasts.norm(query)
-        val topArtist = artists.firstOrNull { Podcasts.norm(it.name) == qn || Podcasts.norm(it.name).startsWith(qn) }
+        val qk = Spelling.key(query)
+        val topArtist = artists.firstOrNull { Spelling.matches(it.name, qk) }
         if (topArtist != null) {
             items += HeaderItem("התוצאה המובילה")
             items += artistRow(topArtist)
@@ -726,6 +794,14 @@ class LibraryScreen(act: MainActivity) : ListScreen(act) {
     override fun onTopAction() = newPlaylist()
 
     private var filter = 0
+
+    override fun onBack(): Boolean {
+        if (filter == 0) return false
+        filter = 0
+        render()
+        list.scrollToPosition(0)
+        return true
+    }
 
     override fun render() {
         val items = ArrayList<Item>()

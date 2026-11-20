@@ -47,10 +47,15 @@ class YtSearch(query: String, filter: String, private val kind: Kind) {
     var hasMore = false
         private set
 
+    /** YouTube's "did you mean", when it did not already correct the search by itself. */
+    var suggestion = ""
+        private set
+
     fun first(): List<YtResult> {
         val info = SearchInfo.getInfo(service, handler)
         next = info.nextPage
         hasMore = info.hasNextPage()
+        suggestion = if (info.isCorrectedSearch) "" else (info.searchSuggestion ?: "").trim()
         return YouTube.convert(info.relatedItems, kind)
     }
 

@@ -18,10 +18,12 @@ class WaveView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
     // Heights and shades measured from the original logo
     private val base = floatArrayOf(119f, 217f, 315f, 175f, 273f, 147f, 91f).map { it / 315f }.toFloatArray()
     private val shade = floatArrayOf(0.55f, 0.75f, 0.92f, 1f, 0.92f, 0.75f, 0.55f)
-    private val speed = floatArrayOf(5.1f, 7.3f, 6.2f, 8.4f, 5.7f, 7.9f, 6.6f)
+    // Slow, overlapping waves look calm and smooth even on a small phone
+    private val speed = floatArrayOf(2.1f, 2.9f, 2.4f, 3.3f, 2.2f, 3.1f, 2.6f)
     private val phase = floatArrayOf(0.0f, 1.3f, 2.1f, 0.7f, 2.9f, 1.8f, 0.4f)
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
+    private val start = SystemClock.uptimeMillis()
 
     var color: Int = context.color(R.color.q_primary)
         set(value) {
@@ -50,10 +52,14 @@ class WaveView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
         // In the logo the gap between bars is a little narrower than a bar
         val bar = w / (n + (n - 1) * 0.926f)
         val gap = bar * 0.926f
-        val t = SystemClock.uptimeMillis() / 1000f
+        // Time since this view was made (a float of the phone's whole uptime is too coarse and stutters)
+        val t = ((SystemClock.uptimeMillis() - start) % 3_600_000L) / 1000f
         for (i in 0 until n) {
             var f = base[i]
-            if (playing) f *= 0.5f + 0.5f * (0.5f + 0.5f * sin(t * speed[i] + phase[i]))
+            if (playing) {
+                val wave = 0.6f * sin(t * speed[i] + phase[i]) + 0.4f * sin(t * speed[i] * 0.53f + phase[i] * 2f)
+                f *= 0.62f + 0.38f * (0.5f + 0.5f * wave)
+            }
             val bh = max(bar, h * f)
             val left = paddingLeft + i * (bar + gap)
             val top = paddingTop + (h - bh) / 2f
@@ -62,6 +68,7 @@ class WaveView @JvmOverloads constructor(context: Context, attrs: AttributeSet? 
             paint.alpha = (255 * shade[i]).toInt()
             canvas.drawRoundRect(rect, bar / 2f, bar / 2f, paint)
         }
-        if (playing && isShown) postInvalidateDelayed(60)
+        // Draw again on the next screen frame, only while visible and playing
+        if (playing && isShown) postInvalidateOnAnimation()
     }
 }

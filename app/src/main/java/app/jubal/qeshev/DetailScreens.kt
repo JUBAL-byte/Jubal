@@ -120,7 +120,7 @@ class ArtistScreen(act: MainActivity, private var artist: ArtistRef) : ListScree
         }
         val similar = Recs.similarTo(artist, 10)
         if (similar.isNotEmpty()) {
-            items += HeaderItem("מעריצים שומעים גם")
+            items += HeaderItem("אמנים דומים")
             items += ShelfItem("similar:${artist.key}", similar.map { artistCard(it) })
         }
         if (p.singles.isEmpty() && p.albums.isEmpty() && songs?.isEmpty() == true) {
